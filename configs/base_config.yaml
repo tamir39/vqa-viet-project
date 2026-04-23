@@ -1,4 +1,37 @@
-﻿learning_rate: 0.001
-batch_size: 32
-epochs: 10
-model_name: 'vqa_vietnamese_modular'
+﻿# Global configuration for Vietnamese VQA project
+project_name: "vqa-viet-project"
+
+# Hyperparameters
+hyperparameters:
+  batch_size: 16
+  lr: 5.0e-5
+  epochs: 10
+  max_seq_length: 128
+  weight_decay: 0.01
+
+# Model configurations
+# A1/A2: Baseline models
+# B1/B2: Advanced models
+models:
+  A1:
+    encoder_path: "path/to/A1/encoder"
+    decoder_path: "path/to/A1/decoder"
+  A2:
+    encoder_path: "path/to/A2/encoder"
+    fusion_path: "path/to/A2/fusion"
+  B1:
+    model_path: "path/to/B1/model"
+  B2:
+    model_path: "path/to/B2/model"
+
+# Dataset paths (2000-sample subset for development)
+dataset:
+  train_path: "data/processed/train_2000.json"
+  val_path: "data/processed/val_2000.json"
+  test_path: "data/processed/test_2000.json"
+  images_dir: "data/raw/images"
+
+# Logging and Output
+logging:
+  log_dir: "reports/logs"
+  checkpoint_dir: "reports/checkpoints"
