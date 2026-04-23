@@ -1,0 +1,9 @@
+﻿[
+    {
+        "id": "sample-001",
+        "image": "path/to/image.jpg",
+        "question": "",
+        "answer": "",
+        "type": "action"
+    }
+]

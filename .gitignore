@@ -1,0 +1,17 @@
+﻿# Data and Models
+data/raw/*
+data/processed/*
+data/preference/*
+models/*
+!data/annotations/*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.class
+.venv/
+.env
+
+# IDEs
+.vscode/
+.idea/
