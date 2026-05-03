@@ -85,7 +85,7 @@
 
 ### 2.5 Model assembly + trainer
 
-- [ ] `src/models/modular_vqa.py` — End-to-end `nn.Module` wiring encoders + fusion + decoder. One module class, `decoder_type` switch for A1/A2.
+- [x] `src/models/modular_vqa.py` — End-to-end `nn.Module` wiring encoders + fusion + decoder. One class, `decoder_input ∈ {"pooled", "seq"}` switch for A1/A2.
 - [ ] `src/trainer/__init__.py`.
 - [ ] `src/trainer/modular_trainer.py` — Train loop: AMP (bf16/fp16), AdamW, warmup→cosine, gradient clipping, val-loss-based ckpt save under `reports/<config>/checkpoints/`.
 
