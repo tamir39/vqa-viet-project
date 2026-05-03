@@ -33,7 +33,7 @@
 
 ### 1.2 Annotation
 
-- [ ] Write a short annotator guide (one page) covering: question style, the 6 question types, ≤10-word answer rule, canonical answer forms (use `normalize_answer` mentally).
+- [x] Write a short annotator guide ([ANNOTATOR_GUIDE.md](ANNOTATOR_GUIDE.md)) covering image rules, question style, the 6 question types, the ≤10-word answer rule, canonical forms, splits, and common pitfalls.
 - [ ] Annotate ≥**2000 (image, question, answer) rows** total across the 6 types. Aim for rough balance — no single type below 10%.
 - [ ] Hand-curate a ≥**50-row test set**, image-disjoint from any image used elsewhere.
 - [ ] Append all rows to `data/annotations/train.json` (raw pool — `build_dataset.py` does the splits).
