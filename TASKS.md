@@ -25,7 +25,7 @@
 
 ### 1.1 Image collection
 
-- [ ] Pick the dish set (target: ≥10 canonical Vietnamese dishes; e.g., `pho`, `bun_bo`, `banh_mi`, `com_tam`, `bun_cha`, `goi_cuon`, `banh_xeo`, `cha_gio`, `che`, `xoi`).
+- [x] Lock dish set: 10 canonical dishes (`pho`, `bun_bo_hue`, `banh_mi`, `com_tam`, `bun_cha`, `goi_cuon`, `cha_gio`, `banh_xeo`, `mi_quang`, `hu_tieu`) — see [src/utils/dishes.py](src/utils/dishes.py) and [PLANNING.md §4.5](PLANNING.md).
 - [ ] Crawl candidate images per dish (web scrape + 30VNFoods + self-shot) to ≥**200 unique images** total.
 - [ ] License-tag every image: `source ∈ {scrape, dataset, self_shot}`. Drop anything we cannot redistribute.
 - [ ] Deduplicate by perceptual hash; reject near-duplicates across dishes.

@@ -163,6 +163,7 @@ FoodLensVN/
 ```
 
 - `type ∈ {yes_no, counting, recognition, attribute, spatial, reasoning}`
+- `dish ∈ CANONICAL_DISHES` — the locked 10-dish set; see §4.5. New dishes require a PRD update.
 - `answer_type` is auto-derived: `yes_no | counting | recognition → classification`; `attribute | spatial | reasoning → generative`.
 - `difficulty` is auto-derived: `yes_no | recognition → easy`; `counting | attribute → medium`; `spatial | reasoning → hard`.
 - `source ∈ {scrape, dataset, self_shot}` for license tracking.
@@ -186,7 +187,24 @@ In order:
 4. Per-token Vietnamese-number-word → digit (0–10, both diacritic and bare forms; `bon | bốn | tu | tư → 4`).
 5. Strip trailing classifier suffix (`cái | miếng | phần | tô | bát`).
 
-### 4.4 Preference row (DPO/PPO bonus)
+### 4.5 Canonical dish set (locked)
+
+Single source of truth: [`src/utils/dishes.py`](src/utils/dishes.py) (`CANONICAL_DISHES`). All raw rows must use these `dish` keys; `build_dataset.py` rejects unknown values.
+
+| `dish` key | Display | Region | Role |
+|------------|---------|--------|------|
+| `pho` | Phở | North | Iconic noodle soup |
+| `bun_bo_hue` | Bún bò Huế | Central | Spicy beef noodle soup |
+| `banh_mi` | Bánh mì | Pan-regional | Sandwich |
+| `com_tam` | Cơm tấm | South | Broken rice plate |
+| `bun_cha` | Bún chả | North (Hanoi) | Grilled pork + noodles |
+| `goi_cuon` | Gỏi cuốn | South | Fresh spring rolls |
+| `cha_gio` | Chả giò / nem rán | South | Fried spring rolls |
+| `banh_xeo` | Bánh xèo | Central / South | Sizzling crepe |
+| `mi_quang` | Mì Quảng | Central | Turmeric noodles, dry-style |
+| `hu_tieu` | Hủ tiếu | South | Noodle soup (pho disambiguation target) |
+
+### 4.6 Preference row (DPO/PPO bonus)
 
 ```json
 {

@@ -115,7 +115,7 @@ Each annotation row (in raw input and all processed splits):
 - `id` — globally unique (`vfvqa-XXXXXX`).
 - `image` — path relative to `data/`.
 - `image_id` — used to enforce no-overlap between train and test (split is performed at this level).
-- `dish` — canonical key (`pho`, `bun_bo`, `banh_mi`, `com_tam`, …); used to stratify splits.
+- `dish` — canonical key from the locked 10-dish set (`pho`, `bun_bo_hue`, `banh_mi`, `com_tam`, `bun_cha`, `goi_cuon`, `cha_gio`, `banh_xeo`, `mi_quang`, `hu_tieu`) defined in [src/utils/dishes.py](src/utils/dishes.py); used to stratify splits and rejected by `build_dataset.py` if non-canonical.
 - `question` — Vietnamese with diacritics.
 - `answer` — Vietnamese, ≤10 words after `normalize_answer`.
 - `type` — one of `yes_no | counting | recognition | attribute | spatial | reasoning`.

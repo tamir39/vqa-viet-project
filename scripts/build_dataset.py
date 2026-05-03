@@ -16,6 +16,7 @@ auto-created. No internet access required.
 Validation rules (raise on violation, except duplicates which are dropped with
 a warning):
   * type in {yes_no, counting, recognition, attribute, spatial, reasoning}
+  * dish in CANONICAL_DISHES (see src/utils/dishes.py)
   * answer length <= 10 words after normalization
   * counting answers must be digit strings after normalization
   * (image_id, question) pairs are unique
@@ -53,6 +54,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.data_loader.answer_tokenizer import AnswerTokenizer
+from src.utils.dishes import CANONICAL_DISHES_SET
 from src.utils.vn_text import normalize_answer
 
 
@@ -150,6 +152,13 @@ def _process_rows(raw: list[dict], logger: logging.Logger) -> list[dict]:
                 f"{sorted(VALID_TYPES)}"
             )
 
+        dish = row.get("dish")
+        if dish not in CANONICAL_DISHES_SET:
+            raise ValueError(
+                f"row {rid!r} has non-canonical dish {dish!r}; expected one of "
+                f"{sorted(CANONICAL_DISHES_SET)}"
+            )
+
         image = row.get("image")
         if not image:
             raise ValueError(f"row {rid!r} is missing 'image'")
@@ -186,7 +195,7 @@ def _process_rows(raw: list[dict], logger: logging.Logger) -> list[dict]:
                 "id": rid,
                 "image": image,
                 "image_id": image_id,
-                "dish": row.get("dish") or "unknown",
+                "dish": dish,
                 "question": question,
                 "answer": answer_norm,
                 "type": qtype,
