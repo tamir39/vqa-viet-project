@@ -1,363 +1,272 @@
-# 🧭 {{PROJECT_NAME}} — PLANNING.md
+# FoodLensVN — PLANNING
 
-> Operational planning document. Pairs with `PRD.md` (the *what*) and optionally `ARCHITECTURE.md` (the *long-form design*).
-> This file is the day-to-day map for engineers and AI agents working in this repo.
-
----
-
-## 1. Architecture Summary
-
-{{PROJECT_NAME}} is a **modular monolith** in **Phase 1**, with a **clear extraction path to microservices** in Phase 2+.
-
-```
-┌───────────────────────────────────┐
-│   Client                          │
-│   {{React / Next.js / other}}     │
-└──────────────┬────────────────────┘
-               │ REST (JSON, JWT)
-               ▼
-┌───────────────────────────────────┐
-│   API Gateway ({{NestJS / Express}})│
-│   Routing · Guards · Validation   │
-└──────────────┬────────────────────┘
-               │
-   ┌───────────┼───────────┐
-   ▼           ▼           ▼
-┌──────┐  ┌──────┐   ┌──────────┐
-│Mod A │  │Mod B │   │  Mod C   │  …all domain modules
-└──┬───┘  └──┬───┘   └────┬─────┘
-   │         │            │
-   └─────────┼────────────┘
-             ▼
-   ┌─────────────────────────┐
-   │   Service Layer         │  business logic
-   └────────────┬────────────┘
-                ▼
-   ┌─────────────────────────┐
-   │   Repository Layer      │  data access
-   └────────────┬────────────┘
-                ▼
-   ┌─────────────────────────┐
-   │   Database              │  {{Postgres / Mongo}}
-   └─────────────────────────┘
-
-           Internal Event Bus
-   ─────────────────────────────────
-   modules emit/listen to canonical events
-```
-
-**Core principles (binding):**
-
-1. **Modular Domain Separation** — modules never cross-import logic. Cross-module communication is via events or via the public API of a service in the same module.
-2. **Service-Oriented Core** — controllers thin, services own logic, repositories own DB.
-3. **Derived State Preference** — computed values are derived, not stored.
-4. **Event-Friendly Design** — every meaningful state change emits an event, even when no listener exists yet.
-5. **Single Source of Truth per Concept** — schemas + types live in `shared/` and are imported by both client and server.
+> Day-to-day map for engineers and AI agents working in this repo. Pairs with `PRD.md` (the *what*).
 
 ---
 
-## 2. Module Catalog
+## 1. Architecture summary
 
-| Module       | Responsibility                  | Owns Tables / Collections | Emits Events     | Listens To         |
-| ------------ | ------------------------------- | ------------------------- | ---------------- | ------------------ |
-| `auth`       | Authentication, token issuance  | —                         | `user.registered`| —                  |
-| `users`      | Profile + admin user management | `users`                   | ...              | `user.registered`  |
-| `{{domain1}}`| ...                             | `{{table}}`               | ...              | ...                |
-| `{{domain2}}`| ...                             | `{{table}}`               | ...              | ...                |
-| `events`     | In-process event bus            | —                         | (transport)      | (transport)        |
+FoodLensVN is a **research codebase**, not a service. Two pipelines share a common data layer, canonicalization, and metric suite — they only diverge below the trainer boundary.
+
+```
+                         ┌────────────────────────────────────┐
+                         │  Raw annotations + images          │
+                         │  data/annotations/train.json       │
+                         │  data/raw/images/*.jpg             │
+                         └───────────────┬────────────────────┘
+                                         │
+                            scripts/build_dataset.py
+                            (validate · canonicalize · split · vocab)
+                                         │
+                         ┌───────────────┴────────────────────┐
+                         ▼                                    ▼
+       data/processed/annotations/{train,val,test}.json   answer_vocab.json
+                         │                                    │
+            ┌────────────┼────────────────────┐               │
+            ▼            ▼                    ▼               │
+     ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐   │
+     │ Modular A1   │ │ Modular A2   │ │ Multimodal B1/B2 │   │
+     │              │ │              │ │                  │   │
+     │ image_enc    │ │ image_enc    │ │ Qwen2-VL-2B      │   │
+     │   (timm)     │ │   (timm)     │ │  (4-bit NF4)     │   │
+     │ text_enc     │ │ text_enc     │ │                  │   │
+     │   (PhoBERT)  │ │   (PhoBERT)  │ │ B1: zero-shot    │   │
+     │ fusion       │ │ fusion       │ │ B2: LoRA SFT     │   │
+     │   (co-attn)  │ │   (co-attn)  │ │   via TRL        │   │
+     │ LSTM dec ───►│ │ Transformer  │ │                  │   │
+     │              │ │     dec ────►│ │                  │   │
+     └──────┬───────┘ └──────┬───────┘ └────────┬─────────┘   │
+            └────────────────┴───────┬──────────┘             │
+                                     ▼                        │
+                         ┌──────────────────────────┐         │
+                         │  src/utils/metrics/      │◄────────┘
+                         │  VQA-Acc · BLEU · ROUGE  │
+                         │  METEOR · BERTScore      │
+                         │  LLM-judge               │
+                         └──────────────┬───────────┘
+                                        ▼
+                         reports/<config>_metrics.json
+                         reports/<config>_errors.json
+                                        │
+                                        ▼
+                              app/demo.py (Gradio)
+```
+
+### Core principles (binding)
+
+1. **Single canonicalization function.** `normalize_answer` is applied at dataset build time, at training-label tokenization, and at inference output cleaning. No second-guessing it elsewhere.
+2. **Image-disjoint splits.** Splits are computed at the `image_id` level, never at the row level — otherwise the same image leaks across train/test.
+3. **Separate answer vocabulary.** `AnswerTokenizer` is the answer-side vocab for modular decoders. PhoBERT remains question-side only. Do not blur this boundary.
+4. **Configs inherit from `base_config.yaml`.** Each of A1/A2/B1/B2 only overrides what changes.
+5. **Kaggle envelope is binding.** Every default must fit ≤16 GB GPU and ≤9-hour runtime. If a feature requires more, gate it behind a flag and document it.
+6. **No hardcoded absolute paths.** All scripts go through `--data-dir` / `--output-dir` flags or `KAGGLE_INPUT_DIR` / `KAGGLE_WORKING_DIR` env vars.
 
 ---
 
-## 3. Folder Structure
+## 2. Module catalog
 
-### 3.1 Root
+| Module | Responsibility | Status |
+|--------|----------------|--------|
+| `src/utils/vn_text.py` | Single source of truth for `normalize_answer` | ✅ Implemented |
+| `src/data_loader/answer_tokenizer.py` | Answer-side vocab for modular decoders | ✅ Implemented |
+| `src/models/multimodal/qwen_vl.py` | Qwen2-VL loader, prompt builder, output cleaner | ✅ Implemented |
+| `scripts/build_dataset.py` | Validate · canonicalize · split · build vocab | ✅ Implemented |
+| `scripts/check_env.py` | GPU + library + config sanity check | ✅ Implemented |
+| `src/data_loader/vqa_dataset.py` | Torch `Dataset` for VQA rows + image loading | ⏳ Planned |
+| `src/data_loader/collate.py` | Batched padding for modular pipeline | ⏳ Planned |
+| `src/data_loader/augment.py` | Image + text augmentation (no back-translation) | ⏳ Planned |
+| `src/models/encoders/image_encoder.py` | ResNet/ViT/EfficientNet via `timm` | ⏳ Planned |
+| `src/models/encoders/text_encoder.py` | PhoBERT-base wrapper | ⏳ Planned |
+| `src/models/fusion/cross_attention.py` | Co-attention fusion (primary) | ⏳ Planned |
+| `src/models/decoders/lstm_decoder.py` | LSTM decoder for A1 | ⏳ Planned |
+| `src/models/decoders/transformer_decoder.py` | Transformer decoder for A2 | ⏳ Planned |
+| `src/trainer/modular_trainer.py` | A1/A2 training loop with AMP + ckpt | ⏳ Planned |
+| `src/trainer/peft_trainer.py` | B2 LoRA SFT via TRL | ⏳ Planned |
+| `src/utils/metrics/` | VQA-Acc, BLEU/ROUGE/METEOR, BERTScore, LLM-judge | ⏳ Planned |
+| `scripts/train.py` | Unified entry-point (`--config <yaml>`) | ⏳ Planned |
+| `scripts/eval.py` | Eval + error-analysis output | ⏳ Planned |
+| `scripts/infer.py` | Single-example inference CLI | ⏳ Planned |
+| `app/demo.py` | Gradio demo serving all four configs | ⏳ Planned |
+
+---
+
+## 3. Folder structure (binding)
 
 ```
-{{project_name}}/
-├── client/                  # Frontend
-├── server/                  # Backend
-├── shared/                  # Shared types, constants, event contracts
-├── docs/                    # Architecture + product docs
-├── scripts/                 # Seed, migration helpers, one-off tools
-├── docker/                  # Dockerfiles
-├── docker-compose.yml
-├── README.md
-├── PRD.md
-├── PLANNING.md
-└── TASKS.md
-```
-
-### 3.2 Server (`server/`)
-
-```
-server/
+FoodLensVN/
+├── app/                           # Gradio demo
+│   └── demo.py
+├── configs/
+│   ├── base_config.yaml           # shared defaults
+│   ├── A1.yaml                    # modular + LSTM
+│   ├── A2.yaml                    # modular + Transformer
+│   ├── B1.yaml                    # Qwen2-VL zero-shot
+│   └── B2.yaml                    # Qwen2-VL LoRA SFT
+├── data/
+│   ├── annotations/               # raw pool (tracked)
+│   ├── raw/                       # images (gitignored)
+│   ├── processed/                 # build_dataset.py output (gitignored)
+│   └── preference/                # DPO pairs (gitignored except stub)
+├── notebooks/
+│   └── kaggle_template.ipynb
+├── reports/                       # checkpoints / logs / metrics / errors
+├── scripts/
+│   ├── check_env.py
+│   ├── build_dataset.py
+│   ├── train.py                   # planned
+│   ├── eval.py                    # planned
+│   └── infer.py                   # planned
 ├── src/
-│   ├── modules/
-│   │   ├── auth/
-│   │   ├── users/
-│   │   └── {{domain modules…}}
-│   │
-│   ├── core/
-│   │   ├── database/
-│   │   ├── config/
-│   │   ├── logger/
-│   │   ├── errors/
-│   │   └── events/
-│   │
-│   ├── shared/
-│   │   ├── utils/
-│   │   ├── constants/
-│   │   └── types/
-│   │
-│   ├── middleware/
-│   │   ├── auth.middleware.ts
-│   │   ├── role.middleware.ts
-│   │   └── error.middleware.ts
-│   │
-│   ├── app.module.ts
-│   └── main.ts
-│
-├── test/                    # e2e tests
-├── tsconfig.json
-└── package.json
+│   ├── data_loader/
+│   │   ├── answer_tokenizer.py
+│   │   ├── vqa_dataset.py         # planned
+│   │   ├── collate.py             # planned
+│   │   └── augment.py             # planned
+│   ├── models/
+│   │   ├── encoders/              # image_encoder.py · text_encoder.py
+│   │   ├── fusion/                # cross_attention.py
+│   │   ├── decoders/              # lstm_decoder.py · transformer_decoder.py
+│   │   └── multimodal/
+│   │       └── qwen_vl.py
+│   ├── trainer/                   # modular_trainer.py · peft_trainer.py
+│   └── utils/
+│       ├── vn_text.py
+│       └── metrics/               # planned
+├── tests/                         # planned
+├── main.py                        # stub entry-point
+├── pyproject.toml
+├── uv.lock
+└── DLEndterm.docx                 # course brief (gitignored)
 ```
 
-### 3.3 Per-Module Layout (binding)
-
-Every domain module under `server/src/modules/<name>/` follows this exact layout:
-
-```
-<module>/
-├── <module>.module.ts        # Module declaration
-├── <module>.controller.ts    # HTTP layer, validation, guards
-├── <module>.service.ts       # Business logic
-├── <module>.repository.ts    # DB access
-├── <module>.model.ts         # Schema / entity
-├── <module>.types.ts         # Module-local types
-└── dto/                      # Request/response DTOs
-```
-
-### 3.4 Client (`client/`)
-
-```
-client/
-├── src/
-│   ├── pages/                # Routes
-│   ├── components/           # Cross-feature reusable UI
-│   ├── modules/              # Feature-based modules (mirror server)
-│   ├── hooks/
-│   ├── services/             # API clients (one per server module)
-│   ├── store/                # Light state (Zustand / Redux)
-│   ├── utils/
-│   └── styles/
-├── public/
-├── tsconfig.json
-└── package.json
-```
-
-### 3.5 Shared (`shared/`)
-
-```
-shared/
-├── types/                    # Cross-package types
-├── constants/
-│   ├── roles.ts
-│   └── event-names.ts
-└── index.ts
-```
-
-> **Rule:** any type used by both `client/` and `server/` lives in `shared/`. Module-internal types stay in `<module>.types.ts`.
+> **Rule:** new code extends this layout. Do not flatten directories or move files between top-level groups without a PRD update.
 
 ---
 
-## 4. Data Model
+## 4. Data contracts
 
-> Conventions: `id` is a string (UUID or ObjectId). Timestamps `createdAt` / `updatedAt` exist on every entity but are omitted below for brevity.
+### 4.1 Annotation row
 
-### 4.1 User
-
-```ts
-User {
-  id: string
-  name: string
-  email: string          // unique
-  password: string       // hashed
-  role: '{{role values}}'
-  isActive: boolean
+```json
+{
+  "id": "vfvqa-000001",
+  "image": "raw/images/pho_001.jpg",
+  "image_id": "pho_001",
+  "dish": "pho",
+  "question": "Món này có cay không?",
+  "answer": "không",
+  "type": "yes_no",
+  "answer_type": "classification",
+  "difficulty": "easy",
+  "source": "scrape"
 }
 ```
 
-### 4.2 {{Entity B}}
+- `type ∈ {yes_no, counting, recognition, attribute, spatial, reasoning}`
+- `answer_type` is auto-derived: `yes_no | counting | recognition → classification`; `attribute | spatial | reasoning → generative`.
+- `difficulty` is auto-derived: `yes_no | recognition → easy`; `counting | attribute → medium`; `spatial | reasoning → hard`.
+- `source ∈ {scrape, dataset, self_shot}` for license tracking.
 
-```ts
-{{EntityB}} {
-  id: string
-  // ...fields...
+### 4.2 Validation rules (enforced by `build_dataset.py`)
+
+- `type` is in the 6-value enum.
+- `len(normalize_answer(answer).split()) ≤ 10`.
+- If `type == "counting"` then `normalize_answer(answer).isdigit()` (so `"hai cái"` → `"2"`).
+- `(image_id, question)` is unique within a split (duplicates dropped with warning, count logged).
+- Train and test `image_id` sets are disjoint.
+
+In non-debug mode also: ≥200 unique images, ≥2000 train rows, ≥50 test rows.
+
+### 4.3 Answer canonicalization (`normalize_answer`)
+
+In order:
+1. Lowercase, strip, collapse internal whitespace.
+2. Strip trailing punctuation `[.,!?…:;]`.
+3. Yes/no whole-string match (early return): `co | có | yes → "có"`; `khong | không | no → "không"`.
+4. Per-token Vietnamese-number-word → digit (0–10, both diacritic and bare forms; `bon | bốn | tu | tư → 4`).
+5. Strip trailing classifier suffix (`cái | miếng | phần | tô | bát`).
+
+### 4.4 Preference row (DPO/PPO bonus)
+
+```json
+{
+  "id": "vfpref-000001",
+  "image": "raw/images/pho_001.jpg",
+  "question": "Món này có cay không?",
+  "chosen": "không",
+  "rejected": "có cay nhiều"
 }
 ```
 
-### 4.3 {{Entity C}}
+---
 
-```ts
-{{EntityC}} {
-  id: string
-  // ...fields...
-}
-```
+## 5. Training contracts
 
-### 4.4 Event (in-memory contract — not persisted in MVP)
+### 5.1 Modular (A1/A2)
 
-```ts
-DomainEvent<T> {
-  name: string           // e.g., '{{module}}.{{verb}}'
-  payload: T
-  occurredAt: Date
-}
-```
+- Image encoder: `timm` model (default ResNet50; ablation: ViT-S/16) producing `(B, P, D_img)` patch features.
+- Text encoder: PhoBERT-base producing `(B, T, D_txt)` token features.
+- Fusion: co-attention → `(B, D_fused)` (primary); element-wise / concat (ablations).
+- Decoder: LSTM (A1) or Transformer (A2) over `AnswerTokenizer` vocab; teacher-forced cross-entropy at train, greedy decode at inference (`MAX_LEN = 12`).
+- Loss: token-level CE with `ignore_index = PAD_ID (0)`.
+- Optimizer: AdamW; warmup → cosine decay; AMP (`bf16`/`fp16`) when CUDA.
 
-**Canonical event names** (from `shared/constants/event-names.ts`):
+### 5.2 Multimodal (B1/B2)
 
-| Event                    | Payload                            | Emitter        |
-| ------------------------ | ---------------------------------- | -------------- |
-| `user.registered`        | `{ userId, role }`                 | `auth`         |
-| `{{event-name}}`         | `{{payload shape}}`                | `{{module}}`   |
+- Base model: `Qwen/Qwen2-VL-2B-Instruct`. 4-bit NF4 by default; bf16 fallback for non-quantized.
+- B1: zero-shot. No training. Inference only.
+- B2: LoRA SFT via TRL `SFTTrainer`. LoRA on attention proj layers only; targets defined in `B2.yaml`.
+- Strict Vietnamese system prompt (already in `qwen_vl.py`); SFT format reuses the same chat template.
+- Generation: `max_new_tokens=20`, `do_sample=False`. Output post-processed via `_clean_output` → `normalize_answer`.
 
-### 4.5 Relationship Map
+### 5.3 Evaluation suite
 
-```
-User ─< {{relation}} >─ {{Entity}}
-```
+| Metric | Implementation | Notes |
+|--------|----------------|-------|
+| VQA Accuracy (exact) | Exact-match against canonical gold | After `normalize_answer` on both sides. |
+| VQA Accuracy (soft) | Token-overlap with thresholds | Type-aware (yes_no requires exact). |
+| BLEU | `sacrebleu` | BLEU-1..4. |
+| ROUGE-L | `rouge-score` | F1. |
+| METEOR | `nltk.translate.meteor_score` | With WordNet fallback or token-level. |
+| BERTScore | `bert-score` with `xlm-roberta-base` | Vietnamese-friendly. |
+| LLM-judge | Local model (Qwen2-VL or other) prompting a yes/no equivalence call | Offline only; no paid APIs. |
+
+All metrics report **per-type** and **per-difficulty** breakdowns. Errors written to `reports/<config>_errors.json`.
 
 ---
 
-## 5. Security Model
+## 6. Configuration
 
-| Concern                | Mechanism                                                                                       |
-| ---------------------- | ----------------------------------------------------------------------------------------------- |
-| **Authentication**     | JWT (HS256). Token in `Authorization: Bearer <jwt>`.                                            |
-| **Password storage**   | `bcrypt` (cost ≥ 12) or `argon2id`. Never log or return passwords.                              |
-| **Authorization**      | Role-based guards + ownership guards.                                                            |
-| **Input validation**   | `class-validator` + `class-transformer` on every DTO. Reject unknown fields.                    |
-| **Error normalization**| Single error middleware returns `{ code, message, details? }` with stable error codes.          |
-| **Public endpoints**   | Document the explicit allow-list (e.g., `POST /auth/register`, `POST /auth/login`).            |
-| **Rate limiting**      | Out of MVP scope (planned post-MVP via guard).                                                  |
-| **Secrets**            | All via env vars. Never committed.                                                               |
-| **CORS**               | Strict allow-list per environment.                                                               |
+`configs/base_config.yaml` holds shared defaults (paths, seed, batch size, image resolution, epoch count, scheduler). Each of `A1.yaml`, `A2.yaml`, `B1.yaml`, `B2.yaml` overrides only what changes (e.g., decoder type, LoRA targets, model id).
 
-**RBAC matrix (template):**
-
-|                          | {{Role A}} | {{Role B}} | {{Role C}} | Public |
-| ------------------------ | :--------: | :--------: | :--------: | :----: |
-| {{Action 1}}             |     ✅     |     ✅     |     ❌     |   ❌   |
-| {{Action 2}}             |     ✅     |     ❌     |     ❌     |   ❌   |
+Loading rule: `train.py` and `eval.py` deep-merge `base_config.yaml` ← config-specific yaml. Do not duplicate base values.
 
 ---
 
-## 6. Event System (Internal Event Bus)
+## 7. Kaggle workflow
 
-### 6.1 Implementation (MVP)
-
-- Built on **{{NestJS `EventEmitterModule`}}** (or a thin `EventBus` service wrapping Node's `EventEmitter`).
-- **In-process only.** No transport, no persistence in MVP.
-- Listeners register via decorators (`@OnEvent('event.name')`).
-
-### 6.2 Why an event bus in a monolith
-
-- Decouples domain logic between modules.
-- Prepares the codebase for Phase 2 extraction.
-- Enables analytics hooks later without touching domain code.
-
-### 6.3 Phase-2 Migration Path
-
-| Phase   | Bus Implementation                                              | Code change in domain modules     |
-| ------- | --------------------------------------------------------------- | --------------------------------- |
-| 1 (MVP) | In-process `EventEmitter`                                       | None (baseline)                   |
-| 2       | Local bus + adapter to Redis Pub/Sub or NATS for selected events| None — only `events/` core changes|
-| 3       | Full broker (Kafka/NATS) with persistence + replay              | None — only `events/` core changes|
-
-> **Binding rule:** domain modules NEVER import the transport. They only `emit(name, payload)` and `@OnEvent(name)`.
+- `notebooks/kaggle_template.ipynb` clones the repo, runs `uv sync`, sets `KAGGLE_NO_INTERNET=1` if applicable, and verifies GPU.
+- Pre-stage HF models (`Qwen/Qwen2-VL-2B-Instruct`, `vinai/phobert-base`, `xlm-roberta-base`) into a Kaggle dataset for offline mode.
+- Outputs go to `KAGGLE_WORKING_DIR=/kaggle/working`. Inputs come from `KAGGLE_INPUT_DIR=/kaggle/input/foodlensvn`.
 
 ---
 
-## 7. Deployment
+## 8. Decision log
 
-### 7.1 Local Development
-
-- `docker-compose up` boots the full stack (DB, server, client).
-- `npm run dev` for hot reload outside Docker.
-- `scripts/seed.ts` populates baseline data.
-
-### 7.2 CI Pipeline ({{GitHub Actions}})
-
-```
-PR opened / updated
-   ↓
-1. Install deps
-2. Lint
-3. Type check (tsc --noEmit)
-4. Unit tests
-5. Build server
-6. Build client
-7. Block merge if any step fails
-```
-
-### 7.3 Production Deployment
-
-| Component | Host                    |
-| --------- | ----------------------- |
-| Frontend  | {{Vercel / static}}     |
-| Backend   | {{Railway / Render / AWS}} |
-| Database  | {{Managed Postgres}}    |
-| Storage   | {{S3-compatible}}       |
-
-### 7.4 Environments
-
-- `local` — docker-compose, seeded.
-- `staging` — auto-deploy from `develop`.
-- `production` — auto-deploy from `main` after CI green.
-
-### 7.5 Configuration
-
-All environment-specific values via env vars; loaded + validated by `core/config/`.
-
-```
-DATABASE_URL=
-JWT_SECRET=
-JWT_EXPIRES_IN=1d
-NODE_ENV=development|staging|production
-PORT=3000
-CORS_ORIGINS=
-```
-
----
-
-## 8. Roadmap
-
-| Phase | Focus                          | Deliverable                                          |
-| ----- | ------------------------------ | ---------------------------------------------------- |
-| **1** | Modular monolith (MVP)         | All PRD §4 user stories pass acceptance criteria.    |
-| **2** | Microservices preparation      | Extract first service; pluggable bus.                |
-| **3** | Domain expansion               | {{future capabilities}}                              |
-
----
-
-## 9. Decision Log
-
-- **{{Framework}} chosen because** {{reason}}.
-- **TypeScript everywhere** — shared types eliminate client/server contract drift.
-- **In-process event bus first** — avoids infra cost while we validate domain boundaries.
-- **Derived state** — prevents data-integrity bugs from denormalized truth.
-- **No third-party APIs in MVP** — keeps the system runnable offline and on a free tier.
+- **Qwen2-VL-2B-Instruct over LLaVA / InstructBLIP** — Vietnamese performance is materially better and the 2B size fits the Kaggle envelope with NF4.
+- **PhoBERT over multilingual BERT** — domain match (Vietnamese) and the project explicitly compares with/without it in the modular ablation.
+- **Separate `AnswerTokenizer`** — the answer space is small and structured (yes/no, digits, dish names, attributes); a domain vocab gives a much smaller decoder output and faster convergence than reusing PhoBERT's 64k vocab.
+- **Image-disjoint splits at `image_id` level** — naive row-level splitting leaks the same image across train/test and inflates accuracy ~10–20 points.
+- **No back-translation augmentation** — explicitly excluded by the course brief because it can corrupt the canonical answer form.
+- **`uv` over pip / poetry** — faster, deterministic, and locks the Python version (≥3.14 in this repo).
 
 ---
 
 ## Invariants (DO NOT VIOLATE)
 
-* PRD.md is the source of truth for requirements.
-* Do not add features not in PRD.md.
-* Do not change high-level architecture without explicit approval.
-* Do not delete code unless explicitly unsafe or deprecated.
-* Modules do not cross-import logic.
-* Computed values are derived, not stored.
-
----
+- `PRD.md` is the source of truth for requirements. `DLEndterm.docx` is the source of truth for the course contract.
+- Do not change folder structure without a PRD update.
+- Do not bypass `normalize_answer` for any answer string anywhere in the pipeline.
+- Do not split at the row level — always at `image_id`.
+- Do not push `*.docx` or per-repo `CLAUDE.md` (gitignored).
+- `main` branch is touched only on shipping; daily work goes to feature branches off `develop`.

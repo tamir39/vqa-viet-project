@@ -1,214 +1,177 @@
-# ✅ {{PROJECT_NAME}} — TASKS.md
+# FoodLensVN — TASKS
 
-> Execution checklist. Each task is sized for **1–3 hours** of focused work.
-> Work top-to-bottom within a phase. Check off only when committed and verified.
-> Conventions: `feat(<scope>): ...`, `fix(<scope>): ...` per repo CLAUDE.md.
-
----
-
-## 🚀 Phase 1 — MVP Modular Monolith
-
-### 1.1 Repository & Tooling Setup
-
-- [ ] Initialize npm workspace at root (`server/`, `client/`, `shared/`).
-- [ ] Add root `package.json` with workspaces and shared scripts (`lint`, `test`, `build`).
-- [ ] Add root `tsconfig.base.json` and per-package `tsconfig.json` extending it.
-- [ ] Add `.gitignore` covering `node_modules`, `dist`, `.env`, `coverage`.
-- [ ] Add `.editorconfig` and `.prettierrc`.
-- [ ] Add ESLint config (TypeScript + framework rules).
-- [ ] Add Husky + lint-staged for pre-commit lint and format.
-
-### 1.2 Shared Package (`shared/`)
-
-- [ ] Scaffold `shared/` with `types/`, `constants/`, `index.ts`.
-- [ ] Define cross-package types (User and any other shared entities).
-- [ ] Define `DomainEvent<T>` type and `EventName` union.
-- [ ] Define `event-names.ts` constants (canonical set per `PLANNING.md`).
-- [ ] Define `roles.ts` constants.
-- [ ] Wire shared package as a workspace dependency for client + server.
-
-### 1.3 Server — Bootstrapping (`server/`)
-
-- [ ] Generate framework skeleton ({{NestJS / Express}}).
-- [ ] Create `core/config/` env loader with schema validation.
-- [ ] Create `core/logger/` structured logger module.
-- [ ] Create `core/errors/` with base error classes + normalizer.
-- [ ] Create `core/database/` connection module.
-- [ ] Create `core/events/` with internal `EventBus` service + `@OnEvent` decorator.
-- [ ] Create global `error.middleware.ts` and register on app bootstrap.
-- [ ] Create `auth.middleware.ts` and `role.middleware.ts` (RBAC guard).
-- [ ] Add health endpoint `GET /health` returning DB + bus status.
-
-### 1.4 Module: `auth`
-
-- [ ] Scaffold module folder per `PLANNING.md` §3.3.
-- [ ] Implement `POST /auth/register` (creates user with default role).
-- [ ] Implement password hashing (bcrypt or argon2) in service layer.
-- [ ] Implement `POST /auth/login` returning JWT.
-- [ ] Add JWT strategy + `JwtAuthGuard`.
-- [ ] Reject duplicate email with `409`; invalid credentials `401` (generic).
-- [ ] Emit `user.registered` event on successful registration.
-- [ ] Unit-test register + login happy path and 3 failure cases.
-
-### 1.5 Module: `users`
-
-- [ ] Scaffold module folder; implement model + repository.
-- [ ] Implement `GET /users/me` (authenticated user profile).
-- [ ] Implement `PATCH /users/me` (update profile fields).
-- [ ] Implement admin-only list, role change, deactivate endpoints.
-- [ ] Add audit log entry on every admin user action.
-- [ ] Unit-test role guard rejects non-admin.
-
-### 1.6 Module: `{{domain-1}}` (e.g., `courses`)
-
-- [ ] Scaffold module; implement model + repository.
-- [ ] Implement CRUD endpoints with role + ownership guards.
-- [ ] Implement status lifecycle and valid-transition enforcement.
-- [ ] Emit canonical events for state changes.
-- [ ] Unit-test each service method.
-
-### 1.7 Module: `{{domain-2}}`
-
-- [ ] Scaffold module; implement model + repository.
-- [ ] Implement endpoints per PRD acceptance criteria.
-- [ ] Add guards as required.
-- [ ] Emit canonical events.
-- [ ] Unit-test each service method.
-
-### 1.8 Module: `{{domain-3}}`
-
-- [ ] Scaffold module; implement model + repository.
-- [ ] Implement endpoints per PRD acceptance criteria.
-- [ ] Add guards as required.
-- [ ] Emit canonical events.
-- [ ] Unit-test each service method.
-
-### 1.9 Cross-Cutting (server)
-
-- [ ] Add `class-validator` DTOs for every controller endpoint.
-- [ ] Reject unknown fields globally (`whitelist: true, forbidNonWhitelisted: true`).
-- [ ] Add API documentation tooling (Swagger / OpenAPI) at `/docs` (dev only).
-- [ ] Add seed script `scripts/seed.ts` populating baseline data.
-- [ ] Add `npm run seed` to root scripts.
-
-### 1.10 Client — Bootstrapping (`client/`)
-
-- [ ] Scaffold {{React / Next.js}} app.
-- [ ] Configure TypeScript with `paths` to `shared/`.
-- [ ] Add styling solution (Tailwind / CSS modules).
-- [ ] Add React Query for data fetching.
-- [ ] Add Zustand for light state (auth, current user).
-- [ ] Add `services/` API client per server module.
-- [ ] Add JWT interceptor (attach `Authorization`, handle 401 → logout).
-
-### 1.11 Client — Core Pages
-
-- [ ] Build `/register` page + form.
-- [ ] Build `/login` page + form.
-- [ ] Persist JWT (localStorage or httpOnly cookie).
-- [ ] Build app shell (header, nav, route guards by role).
-- [ ] Build feature pages per PRD user stories.
-
-### 1.12 Events — End-to-End Wiring
-
-- [ ] Verify all canonical events from `PLANNING.md` are emitted by their owners.
-- [ ] Add an `events.dev-listener.ts` (dev-only) that logs every event for debugging.
-- [ ] Document event contracts in `docs/events.md`.
-
-### 1.13 Testing
-
-- [ ] Set up Jest for server with module-by-module test folders.
-- [ ] Write unit tests for each service's happy + error paths.
-- [ ] Set up e2e tests covering the golden path defined in PRD.
-- [ ] Set up Vitest (or Jest) for client.
-- [ ] Write component tests for critical flows.
-- [ ] Configure coverage threshold (≥70% lines on services).
-
-### 1.14 Deployment (MVP)
-
-- [ ] Write `docker/server.Dockerfile`.
-- [ ] Write `docker/client.Dockerfile`.
-- [ ] Write `docker-compose.yml` (db + server + client).
-- [ ] Verify `docker-compose up` works from a clean clone.
-- [ ] Add CI workflow: lint → typecheck → test → build.
-- [ ] Add deploy step to the chosen hosts.
-- [ ] Document local + prod setup in `README.md`.
-
-### 1.15 MVP Definition-of-Done Verification
-
-- [ ] All PRD user stories acceptance criteria checked off.
-- [ ] CI green on `main`.
-- [ ] Seed script runs in clean DB without errors.
-- [ ] {{Public verification or demo path}} works end-to-end.
-- [ ] Tag release `v1.0.0-mvp`.
+> Execution checklist. Work top-to-bottom within a phase. Check off only when committed and verified.
+> Conventions: `feat(<scope>): ...`, `fix(<scope>): ...` per repo `CLAUDE.md`. Branch off `develop`; never touch `main`.
 
 ---
 
-## 🧱 Phase 2 — Microservices Preparation
+## ✅ Phase 0 — Foundations (DONE)
 
-### 2.1 Extract Boundaries
-
-- [ ] Audit module imports — confirm zero cross-module logic imports.
-- [ ] Document the public service interface of each module in `docs/module-contracts.md`.
-- [ ] Identify candidates for first extraction.
-
-### 2.2 Pluggable Event Bus
-
-- [ ] Refactor `core/events/` to expose a `BusAdapter` interface (`publish`, `subscribe`).
-- [ ] Implement `InMemoryBusAdapter` (current behavior).
-- [ ] Implement `RedisPubSubBusAdapter` behind the same interface.
-- [ ] Add `EVENT_BUS_DRIVER` env var to switch adapters.
-- [ ] Add reconnection + retry logic for the Redis adapter.
-- [ ] Add an event envelope with `id`, `name`, `occurredAt`, `producer`.
-
-### 2.3 Configuration & Secrets
-
-- [ ] Migrate config to per-service `.env` files in `services/<name>/`.
-- [ ] Add a shared config package for cross-service constants.
-- [ ] Document required secrets per service in `docs/operations.md`.
-
-### 2.4 First Service Extraction (Pilot)
-
-- [ ] Create `services/{{candidate}}/` as a standalone app.
-- [ ] Move logic and DB tables to the service.
-- [ ] Replace direct calls (none should exist) with event subscription.
-- [ ] Decommission the module from the monolith.
-- [ ] Update gateway/proxy or client to point to new service.
-- [ ] Add e2e test that publishing an event triggers the service.
-
-### 2.5 API Gateway / Edge
-
-- [ ] Introduce a thin gateway that fronts monolith + extracted services.
-- [ ] Centralize JWT verification at gateway.
-- [ ] Add request tracing IDs propagated via headers + events.
-
-### 2.6 Observability
-
-- [ ] Add structured logs with correlation IDs across services.
-- [ ] Add basic metrics (request count, error rate, event publish/consume).
-- [ ] Add health endpoints (`/health`, `/ready`) per service.
-- [ ] Wire to a free-tier observability backend.
-
-### 2.7 Deployment & CI
-
-- [ ] Update CI to build+test each service in parallel.
-- [ ] Add per-service Docker images.
-- [ ] Update `docker-compose.yml` to include extracted services.
-- [ ] Add staging environment that runs full multi-service topology.
-
-### 2.8 Phase-2 Definition-of-Done
-
-- [ ] At least one service successfully extracted and consuming events.
-- [ ] Monolith continues passing all Phase-1 acceptance tests.
-- [ ] No domain module imports another module's internals.
-- [ ] Bus driver is swappable via configuration without code change.
-- [ ] Tag release `v2.0.0-services`.
+- [x] Repo scaffold + `pyproject.toml` + `uv.lock` + `.python-version`.
+- [x] `.gitignore` covers `data/raw`, `data/processed`, `data/preference`, `models/`, `*.docx`, `CLAUDE.md`.
+- [x] `scripts/check_env.py` — GPU + library import sanity check.
+- [x] `src/utils/vn_text.py` — `normalize_answer` (yes/no, number words, classifiers, punctuation).
+- [x] `src/data_loader/answer_tokenizer.py` — `AnswerTokenizer` with fixed special ids and JSON save/load.
+- [x] `scripts/build_dataset.py` — validate · canonicalize · split (image-disjoint, dish-stratified) · build vocab; `--debug` and `--build-preference` flags.
+- [x] `src/models/multimodal/qwen_vl.py` — Qwen2-VL loader (NF4 default), prompt builder, output cleaner.
+- [x] `data/annotations/train.json` — 22-row valid stub covering all 6 question types (development-only).
+- [x] Bootstrap workflow files (PRD / PLANNING / TASKS / README / CLAUDE.md).
 
 ---
 
-## 📜 Rules
+## 🗃️ Phase 1 — Real dataset (BLOCKING all training work)
 
-* Work sequentially within a phase; do not jump ahead.
-* Commit only when a single TASKS bullet is complete and locally verified (per CLAUDE.md).
-* Update this file immediately on completion (`- [x]`).
-* Keep completed sections collapsed in `<details>` blocks once a sub-section is fully done.
+> **No training task in any later phase may start until this phase is fully checked off.** The 22-row stub is for tooling smoke tests only; it cannot satisfy the course requirement.
+
+### 1.1 Image collection
+
+- [ ] Pick the dish set (target: ≥10 canonical Vietnamese dishes; e.g., `pho`, `bun_bo`, `banh_mi`, `com_tam`, `bun_cha`, `goi_cuon`, `banh_xeo`, `cha_gio`, `che`, `xoi`).
+- [ ] Crawl candidate images per dish (web scrape + 30VNFoods + self-shot) to ≥**200 unique images** total.
+- [ ] License-tag every image: `source ∈ {scrape, dataset, self_shot}`. Drop anything we cannot redistribute.
+- [ ] Deduplicate by perceptual hash; reject near-duplicates across dishes.
+- [ ] Resize / compress images to a sane upper bound (e.g., max edge 1024 px) and store under `data/raw/images/<image_id>.jpg`.
+
+### 1.2 Annotation
+
+- [ ] Write a short annotator guide (one page) covering: question style, the 6 question types, ≤10-word answer rule, canonical answer forms (use `normalize_answer` mentally).
+- [ ] Annotate ≥**2000 (image, question, answer) rows** total across the 6 types. Aim for rough balance — no single type below 10%.
+- [ ] Hand-curate a ≥**50-row test set**, image-disjoint from any image used elsewhere.
+- [ ] Append all rows to `data/annotations/train.json` (raw pool — `build_dataset.py` does the splits).
+
+### 1.3 Build + validate
+
+- [ ] Run `python scripts/build_dataset.py --data-dir data --output-dir data/processed` (full mode, **not** `--debug`).
+- [ ] All validation rules pass: 6-value enum, ≤10-word answers, counting → digit, unique `(image_id, question)`, train/test image-disjoint, ≥200 unique images, ≥2000 train rows, ≥50 test rows.
+- [ ] Inspect duplicate-drop count in `build_dataset.log`; investigate if non-trivial.
+- [ ] Spot-check 20 random train rows + all 50 test rows for label quality.
+
+### 1.4 Stage for Kaggle
+
+- [ ] Pre-stage HF model snapshots (`vinai/phobert-base`, `Qwen/Qwen2-VL-2B-Instruct`, `xlm-roberta-base`) into a Kaggle dataset for `KAGGLE_NO_INTERNET=1` runs.
+- [ ] Pack `data/raw/images/` + `data/annotations/` as a Kaggle dataset under `KAGGLE_INPUT_DIR=/kaggle/input/foodlensvn`.
+- [ ] Smoke-run `notebooks/kaggle_template.ipynb` end-to-end: clone → `uv sync` → `check_env.py` → `build_dataset.py` against the staged dataset.
+
+**Phase 1 exit criteria:** `data/processed/annotations/{train,val,test}.json` exists with the required sizes, vocab built, build log clean, Kaggle smoke run green.
+
+---
+
+## 🚀 Phase 2 — Modular pipeline (A1 / A2)
+
+### 2.1 Encoders
+
+- [x] `src/models/encoders/__init__.py`.
+- [x] `src/models/encoders/text_encoder.py` — PhoBERT-base wrapper. `forward(input_ids, attention_mask) -> (B, T, D)`. Honors `KAGGLE_NO_INTERNET`. Frozen by default; `unfreeze_last_n` knob.
+- [ ] `src/models/encoders/image_encoder.py` — `timm` model wrapper (default `resnet50`; ablation `vit_small_patch16_224`). `forward(pixel_values) -> (B, P, D)` patch features. Pretrained weights, frozen by default.
+- [ ] Smoke test: load each encoder on CPU with random tensor, assert output shape.
+
+### 2.2 Fusion
+
+- [ ] `src/models/fusion/__init__.py`.
+- [ ] `src/models/fusion/cross_attention.py` — Co-attention fusion: image patches attend over text tokens and vice versa; output pooled `(B, D_fused)`.
+- [ ] (Optional ablations) element-wise and concat fusion stubs in same file with a `fusion_type` factory.
+
+### 2.3 Decoders
+
+- [ ] `src/models/decoders/__init__.py`.
+- [ ] `src/models/decoders/lstm_decoder.py` — single-layer LSTM over `AnswerTokenizer`. Teacher-forcing at train, greedy at inference, `MAX_LEN=12`.
+- [ ] `src/models/decoders/transformer_decoder.py` — 2-layer transformer decoder consuming the same fused context.
+- [ ] Both decoders expose `forward(fused, target_ids)` (train) and `generate(fused)` (inference).
+
+### 2.4 Data loading
+
+- [ ] `src/data_loader/vqa_dataset.py` — Torch `Dataset` reading processed JSON rows + loading + transforming images.
+- [ ] `src/data_loader/collate.py` — Pads question token ids and answer token ids; returns batch dict ready for the modular model.
+- [ ] `src/data_loader/augment.py` — Image augmentation (resize, color jitter, RandAugment) and text paraphrase / synonym swap. **No back-translation.**
+
+### 2.5 Model assembly + trainer
+
+- [ ] `src/models/modular_vqa.py` — End-to-end `nn.Module` wiring encoders + fusion + decoder. One module class, `decoder_type` switch for A1/A2.
+- [ ] `src/trainer/__init__.py`.
+- [ ] `src/trainer/modular_trainer.py` — Train loop: AMP (bf16/fp16), AdamW, warmup→cosine, gradient clipping, val-loss-based ckpt save under `reports/<config>/checkpoints/`.
+
+### 2.6 Configs
+
+- [ ] Fill `configs/base_config.yaml` with shared defaults (seed, batch size, lr, epochs, image size, paths).
+- [ ] Fill `configs/A1.yaml` (modular + LSTM decoder).
+- [ ] Fill `configs/A2.yaml` (modular + Transformer decoder; only diff from A1).
+
+### 2.7 CLI entry-points
+
+- [ ] `scripts/train.py` — `--config <yaml>` deep-merge with `base_config.yaml`; dispatch to the right trainer based on `track` field (`modular | qwen_zeroshot | qwen_lora`).
+- [ ] `scripts/infer.py` — Single (image, question) inference for any config.
+- [ ] Train A1 and A2 end-to-end on the real dataset; confirm checkpoints land in `reports/`.
+
+---
+
+## 🔬 Phase 3 — Multimodal pretrained pipeline (B1 / B2)
+
+### 3.1 Configs
+
+- [ ] Fill `configs/B1.yaml` — `track: qwen_zeroshot`, model id, generation params.
+- [ ] Fill `configs/B2.yaml` — `track: qwen_lora`, LoRA targets (attention proj only), rank, alpha, dropout.
+
+### 3.2 LoRA SFT trainer (B2)
+
+- [ ] `src/trainer/peft_trainer.py` — TRL `SFTTrainer` over Qwen2-VL with the strict Vietnamese prompt; LoRA via `peft`; NF4 base; gradient checkpointing on.
+- [ ] Hook `scripts/train.py --config configs/B2.yaml` to dispatch here.
+- [ ] Train B2 end-to-end on the real dataset; LoRA adapter lands in `reports/B2/adapter/`.
+
+### 3.3 B1 inference path
+
+- [ ] Wire `scripts/eval.py` to call `qwen_vl.generate` per row when `track == qwen_zeroshot` (no training).
+- [ ] B2 eval: load base + adapter, then same path as B1.
+
+---
+
+## 📊 Phase 4 — Evaluation
+
+### 4.1 Metrics module
+
+- [ ] `src/utils/metrics/__init__.py`.
+- [ ] `src/utils/metrics/vqa_accuracy.py` — exact + soft (type-aware: yes_no exact, counting digit-equality, others token-overlap).
+- [ ] `src/utils/metrics/text_metrics.py` — BLEU (sacrebleu), ROUGE-L (rouge-score), METEOR (nltk).
+- [ ] `src/utils/metrics/bertscore.py` — `bert-score` with `xlm-roberta-base`; honors `KAGGLE_NO_INTERNET`.
+- [ ] `src/utils/metrics/llm_judge.py` — local LLM (Qwen2-VL text-only or another) prompted for yes/no equivalence; offline.
+- [ ] `src/utils/metrics/aggregate.py` — Compute all metrics, then group by `type` and `difficulty`; return a single dict.
+
+### 4.2 `scripts/eval.py`
+
+- [ ] Loads config + checkpoint/adapter, runs inference on test split, applies `_clean_output` + `normalize_answer`, calls `aggregate`, writes `reports/<config>_metrics.json`.
+- [ ] Writes `reports/<config>_errors.json` with the rows where prediction ≠ gold (cap to N=200 for size).
+- [ ] Verify: all four configs produce both files cleanly.
+
+---
+
+## 🎨 Phase 5 — Demo + report
+
+- [ ] `app/demo.py` — Gradio app with image upload + question textbox; runs A1, A2, B1, B2 in parallel and shows answers + latency.
+- [ ] Verify: launch locally, drop a sample image, all four configs respond.
+- [ ] Written report (separate doc) — A1↔A2 ablation, B1↔B2 lift, dataset construction, error analysis, limitations.
+
+---
+
+## 🧪 Phase 6 — Bonus: DPO / PPO preference training
+
+- [ ] Generate ≥100 preference pairs (chosen vs rejected) from existing model outputs.
+- [ ] Populate `data/preference/preference.json` per the schema in `PLANNING.md` §4.4.
+- [ ] `src/trainer/dpo_trainer.py` — TRL `DPOTrainer` over the LoRA-tuned base.
+- [ ] Eval pass: SFT-vs-DPO deltas on the same metric suite, written to `reports/B2_dpo_metrics.json`.
+
+---
+
+## 🧰 Phase 7 — Polish
+
+- [ ] `tests/` — unit tests for `normalize_answer`, `AnswerTokenizer`, `_clean_output`, dataset validation.
+- [ ] CI workflow: lint + unit tests on every PR into `develop`.
+- [ ] Pre-commit hooks via `ruff` + `black`.
+- [ ] Tag `v1.0.0-submission` once Definition-of-Done in PRD §6 is fully checked.
+
+---
+
+## Rules
+
+- Work sequentially within a phase. **Phase 1 (real dataset) blocks every training-related task in later phases.**
+- Pure code that does not touch data (encoder/decoder/fusion modules, trainer skeletons, configs) may be drafted ahead of Phase 1, but cannot be claimed "done" until they have been exercised end-to-end against the real dataset.
+- Commit only when a single TASKS bullet is complete and locally verified.
+- Update this file immediately on completion (`- [x]`).
+- Never push `main`. Daily work goes to feature branches off `develop`.

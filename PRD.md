@@ -1,154 +1,140 @@
-# 📘 {{PROJECT_NAME}} — Product Requirements Document (PRD)
+# FoodLensVN — Product Requirements Document
 
-> Source of truth for **what** {{PROJECT_NAME}} is, **who** it serves, and **what done looks like**.
-> Architecture (the **how**) lives in `PLANNING.md` (and optionally `ARCHITECTURE.md`).
+> Source of truth for **what** FoodLensVN is, **who** it serves, and **what done looks like**.
+> Architecture (the **how**) lives in `PLANNING.md`. The binding course contract is `DLEndterm.docx`.
 
 ---
 
 ## 1. Project Goals
 
-### 1.1 MVP Goals (Phase 1)
+### 1.1 Course deliverable (Phase 1)
 
-A one-paragraph framing of the MVP outcome. Replace this paragraph with a concrete description of the **smallest end-to-end slice** that delivers value to the first user.
+FoodLensVN is the final-term submission for **BÀI 1 (7 điểm)** of the Deep Learning course. It is a Vietnamese-language Visual Question Answering system: given an image of a Vietnamese dish and a Vietnamese question, the system returns a short Vietnamese answer (≤10 words after canonicalization).
 
-The MVP must:
+The deliverable must include **all four mandatory configurations**:
 
-- Deliver the {{primary user flow}} from start to finish.
-- Expose a clear interface (REST API / CLI / UI) aligned with the modular architecture in `PLANNING.md`.
-- Emit **domain events** for state changes that other modules might react to (now or later).
-- Run as a single deployable unit with clear separation between modules.
+| ID | Track | Description |
+|----|-------|-------------|
+| **A1** | Modular | Image encoder + PhoBERT/BiLSTM text encoder + co-attention fusion + **LSTM** decoder |
+| **A2** | Modular | Same as A1 with a **Transformer** decoder (A1↔A2 is the core ablation) |
+| **B1** | Multimodal pretrained | **Qwen2-VL-2B-Instruct** zero-shot |
+| **B2** | Multimodal pretrained | Qwen2-VL-2B-Instruct fine-tuned with LoRA/PEFT |
 
-### 1.2 Future Goals (Phase 2+)
+Plus: a Gradio demo, a written report, and an evaluation pass on the held-out test split using the metric suite in §2.
 
-Post-MVP goals preserve core stability while preparing for extraction or expansion:
+### 1.2 Bonus track
 
-- Extract {{candidate module}} as a standalone service consuming the same event contracts.
-- Replace the in-process event bus with a transport-friendly bus (Redis/NATS/Kafka) without rewriting domain logic.
-- Add: {{future capability 1}}, {{future capability 2}}, {{future capability 3}}.
+- **DPO / PPO preference training** (≥100 pairs) on the modular or LoRA-fine-tuned model, with a side-by-side comparison vs the SFT baseline.
 
 ### 1.3 Non-Goals
 
-- {{non-goal 1: e.g., real-time chat}}
-- {{non-goal 2: e.g., marketplace, payments}}
-- {{non-goal 3: e.g., enterprise SSO}}
-- Premature service split before module boundaries are proven.
-- Third-party SaaS dependencies for core flows.
+- Any language other than Vietnamese.
+- Open-vocabulary food domains beyond Vietnamese cuisine.
+- Real-time inference SLAs / production hosting.
+- Datasets requiring paid APIs or licenses we cannot redistribute.
+- Models above the Kaggle ≤16 GB GPU envelope without quantization.
 
 ---
 
-## 2. Scope — Core Features
+## 2. Scope
 
-| Area              | MVP Scope                                         |
-| ----------------- | ------------------------------------------------- |
-| **Auth**          | {{auth scope}}                                    |
-| **{{Domain A}}**  | {{scope}}                                         |
-| **{{Domain B}}**  | {{scope}}                                         |
-| **{{Domain C}}**  | {{scope}}                                         |
-| **Events**        | Internal event bus; canonical event names + payloads. |
-| **Security**      | Authn + authz + input validation + error normalization. |
-| **Deployment**    | Containerized; single `docker-compose.yml`; CI green on `main`. |
+| Area | Scope |
+|------|-------|
+| **Dataset** | ≥2000 train rows · ≥200 unique images · 80/10/10 split at `image_id` level, stratified by dish · ≥50 hand-curated test samples, image-disjoint from train · 6 question types (yes_no, counting, recognition, attribute, spatial, reasoning). |
+| **Canonicalization** | One pure function (`normalize_answer`) shared by data pipeline, training labels, and inference output cleaning. |
+| **Modular pipeline (A1/A2)** | Image encoder (ResNet/ViT via `timm`), PhoBERT text encoder, co-attention fusion, LSTM and Transformer decoders consuming a domain-specific `AnswerTokenizer`. |
+| **Multimodal pipeline (B1/B2)** | Qwen2-VL-2B-Instruct loader (4-bit NF4 default for ≤16 GB GPU), strict Vietnamese system prompt, chat-template inference, LoRA SFT trainer for B2. |
+| **Evaluation** | VQA Accuracy (exact + soft), BLEU, ROUGE-L, METEOR, BERTScore (xlm-roberta-base), offline LLM-as-judge — all with per-type and per-difficulty breakdowns. |
+| **Demo** | Gradio app exposing all four configs side-by-side on a user-supplied image + question. |
+| **Reporting** | `<config>_errors.json` per config + a written analysis covering A1↔A2 ablation and B1↔B2 lift. |
 
 ---
 
 ## 3. Constraints
 
-### 3.1 Technical Constraints
+### 3.1 Technical
 
-- **Backend framework:** {{NestJS | Express | other}}.
-- **Language:** TypeScript end-to-end (server, client, shared types).
-- **Frontend:** {{React + Next.js | other}}.
-- **Database:** {{PostgreSQL | MongoDB}}. One per deployment in MVP.
-- **No external network libraries** beyond the core stack.
-- **No external APIs** for core flows.
-- **Internal event bus only** in MVP — no Kafka/RabbitMQ/Redis Pub/Sub.
-- **Auth:** {{JWT | session}} only.
-- **File handling:** Local filesystem in MVP; abstraction for S3-compatible swap later.
+- **Language:** Python ≥ 3.14 (per `pyproject.toml`); managed by `uv`.
+- **GPU envelope:** ≤16 GB VRAM (Kaggle T4 / P100 baseline). Qwen2-VL B1/B2 use 4-bit NF4 quantization; the modular pipeline trains in bf16 where available, fp32 otherwise.
+- **No internet at train time:** when `KAGGLE_NO_INTERNET=1`, all HuggingFace loads use `local_files_only=True`. Models must be pre-staged into the Kaggle dataset mount.
+- **Paths:** every script accepts `--data-dir` / `--output-dir` and falls back to `KAGGLE_INPUT_DIR` / `KAGGLE_WORKING_DIR` env vars, then to relative `data/` paths. No hardcoded absolutes.
+- **Vietnamese text** is preserved with diacritics throughout the pipeline; lowercasing is confined to `normalize_answer`.
 
-### 3.2 Architectural Constraints
+### 3.2 Architectural (binding)
 
-- **Modular monolith** — domain modules MUST NOT cross-import logic. Communication via events or via internal services within the same module.
-- **Service-oriented core:** Controllers thin, Services own business logic, Repositories own data access.
-- **Derived state preference:** computed values are not stored as denormalized truth.
-- **Folder structure** defined in `PLANNING.md` is binding.
+- The modular and multimodal tracks share the same dataset, the same `normalize_answer`, and the same metric suite — they only diverge below the trainer boundary.
+- The **answer-side vocabulary** (`AnswerTokenizer`) is separate from PhoBERT's input tokenizer and is only used by the modular decoders.
+- Folder structure laid out in `PLANNING.md` is binding. New modules extend it; do not flatten or reorganize.
+- Every config (A1/A2/B1/B2) inherits from `configs/base_config.yaml` and overrides only what changes.
 
-### 3.3 Operational Constraints
+### 3.3 Operational
 
-- Single-instance deployment in MVP.
-- No paid third-party infrastructure required to run dev or MVP prod.
-- All secrets via environment variables; never committed.
+- Must run end-to-end on a single Kaggle GPU notebook session (≤9 hours).
+- All artifacts (checkpoints, logs, eval JSON) write under `<output-dir>` so they survive Kaggle "Save & Run All".
+- Course materials (`*.docx`) and per-repo `CLAUDE.md` are gitignored and never pushed.
 
 ---
 
 ## 4. User Stories & Acceptance Criteria
 
-> Format: **As a `<role>`, I want `<capability>` so that `<value>`.**
-> Acceptance criteria are testable, observable, and bounded.
+### US-1 — Course evaluator runs A1 vs A2 ablation
 
----
+**As a** course evaluator, **I want** to reproduce the A1↔A2 comparison from a single command, **so that** I can verify the decoder ablation claim in the report.
 
-### 4.1 {{Role A — e.g., Admin}}
+- [ ] `python scripts/train.py --config configs/A1.yaml` produces a checkpoint and a metrics JSON.
+- [ ] Same with `A2.yaml`.
+- [ ] `python scripts/eval.py --config configs/A1.yaml` and `A2.yaml` print per-type / per-difficulty breakdowns to stdout and write `reports/A1_metrics.json` / `A2_metrics.json` plus `*_errors.json`.
 
-#### US-A1 — {{Capability}}
+### US-2 — Course evaluator runs B1 zero-shot then B2 LoRA-tuned
 
-**As a** {{Role A}}, **I want** {{capability}} **so that** {{value}}.
+**As a** course evaluator, **I want** to see the lift from Qwen2-VL zero-shot to Qwen2-VL LoRA-tuned, **so that** I can verify the multimodal pretrained track.
 
-**Acceptance Criteria:**
+- [ ] `python scripts/eval.py --config configs/B1.yaml` runs zero-shot inference end-to-end on the test split.
+- [ ] `python scripts/train.py --config configs/B2.yaml` produces a LoRA adapter checkpoint.
+- [ ] `python scripts/eval.py --config configs/B2.yaml` loads the adapter and evaluates with the same metric suite.
 
-- [ ] {{Endpoint or action}} performs {{behavior}}.
-- [ ] {{Failure case}} returns {{specific error}}.
-- [ ] {{Authorization rule}} is enforced.
+### US-3 — Student demos the system live
 
-#### US-A2 — {{Capability}}
+**As a** student presenting the project, **I want** to drop an image into a UI and see all four configs answer the same question, **so that** I can demonstrate the comparison interactively.
 
-(repeat the structure)
+- [ ] `python app/demo.py` launches a Gradio app on localhost.
+- [ ] The app accepts an image upload + a Vietnamese question and returns four side-by-side answers (A1, A2, B1, B2) plus inference latency per config.
 
----
+### US-4 — Reproducible dataset build
 
-### 4.2 {{Role B — e.g., Teacher}}
+**As a** student, **I want** the dataset build to be deterministic given the same seed and raw inputs, **so that** every team member sees the same splits.
 
-#### US-T1 — {{Capability}}
+- [ ] `python scripts/build_dataset.py --data-dir data --output-dir data/processed` is byte-stable across runs (SEED=42).
+- [ ] `--debug` produces a runnable subset (`{train:100, val:20, test:50}`) without tripping the corpus-size asserts.
+- [ ] All validation rules from §2 fire on bad input with a clear error message.
 
-**As a** {{Role B}}, **I want** {{capability}} **so that** {{value}}.
+### US-5 — Bonus: DPO preference comparison
 
-**Acceptance Criteria:**
+**As a** student attempting the bonus track, **I want** to train a preference-tuned variant on ≥100 pairs and compare it to the SFT baseline, **so that** I can earn the bonus marks.
 
-- [ ] ...
-- [ ] ...
-
----
-
-### 4.3 {{Role C — e.g., Student}}
-
-#### US-S1 — {{Capability}}
-
-**As a** {{Role C}}, **I want** {{capability}} **so that** {{value}}.
-
-**Acceptance Criteria:**
-
-- [ ] ...
-- [ ] ...
+- [ ] `data/preference/preference.json` schema is documented and a stub exists.
+- [ ] A trainer entry-point produces a DPO/PPO checkpoint.
+- [ ] The eval pass reports SFT-vs-preference deltas on the same metric suite.
 
 ---
 
 ## 5. Out-of-Scope (Explicit)
 
-The following will **not** be built in MVP:
-
-- {{out-of-scope 1}}
-- {{out-of-scope 2}}
-- {{out-of-scope 3}}
-
----
-
-## 6. Definition of Done (MVP)
-
-The MVP is **done** when:
-
-- [ ] All Phase 1 user stories above pass their acceptance criteria.
-- [ ] CI runs lint + unit tests + build on every PR; pipeline is green on `main`.
-- [ ] `docker-compose up` starts the system locally from a clean clone.
-- [ ] Seed script populates baseline data.
-- [ ] All declared events fire and are observable (log or in-memory listener).
-- [ ] {{Public verification or demo path}} works end-to-end.
+- Any model > 7B parameters end-to-end on Kaggle without quantization.
+- Multilingual inference (English questions, etc.).
+- Streaming / chat-style multi-turn QA.
+- Back-translation augmentation (explicitly excluded; paraphrase + synonym only).
+- Production-grade serving infrastructure.
 
 ---
+
+## 6. Definition of Done (Course submission)
+
+- [ ] Dataset built: ≥2000 train · ≥200 unique images · ≥50 hand-curated test rows; splits image-disjoint.
+- [ ] Four configs (A1, A2, B1, B2) train + eval cleanly with reproducible commands.
+- [ ] Metric suite (VQA-Acc exact+soft, BLEU, ROUGE-L, METEOR, BERTScore, LLM-judge) implemented and run on all four configs.
+- [ ] Per-type and per-difficulty breakdowns reported per config.
+- [ ] Gradio demo runs locally and serves all four configs.
+- [ ] Written report covers A1↔A2 ablation, B1↔B2 lift, dataset construction, and limitations.
+- [ ] All artifacts under `reports/` (metrics JSON, errors JSON, sample outputs, training logs).
+- [ ] Kaggle notebook runs end-to-end on a single GPU session within the time/memory envelope.
