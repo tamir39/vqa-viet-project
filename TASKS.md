@@ -72,10 +72,10 @@
 
 ### 2.3 Decoders
 
-- [ ] `src/models/decoders/__init__.py`.
-- [ ] `src/models/decoders/lstm_decoder.py` — single-layer LSTM over `AnswerTokenizer`. Teacher-forcing at train, greedy at inference, `MAX_LEN=12`.
-- [ ] `src/models/decoders/transformer_decoder.py` — 2-layer transformer decoder consuming the same fused context.
-- [ ] Both decoders expose `forward(fused, target_ids)` (train) and `generate(fused)` (inference).
+- [x] `src/models/decoders/__init__.py`.
+- [x] `src/models/decoders/lstm_decoder.py` — single-layer LSTM over `AnswerTokenizer`. Teacher-forcing at train, greedy at inference, `MAX_LEN=12`. Consumes `fused_pooled` (B, D).
+- [x] `src/models/decoders/transformer_decoder.py` — 2-layer transformer decoder consuming `fused_seq` (B, M, D) as cross-attention memory; requires `CoAttentionFusion`.
+- [x] Both decoders expose `forward(...)` (teacher-forced) and `generate(...)` (greedy).
 
 ### 2.4 Data loading
 
