@@ -1,0 +1,4 @@
+{
+  "allowed_tools": ["git", "bash"],
+  "auto_approve": ["git status", "git diff"]
+}
