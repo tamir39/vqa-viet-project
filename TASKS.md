@@ -66,9 +66,9 @@
 
 ### 2.2 Fusion
 
-- [ ] `src/models/fusion/__init__.py`.
-- [ ] `src/models/fusion/cross_attention.py` — Co-attention fusion: image patches attend over text tokens and vice versa; output pooled `(B, D_fused)`.
-- [ ] (Optional ablations) element-wise and concat fusion stubs in same file with a `fusion_type` factory.
+- [x] `src/models/fusion/__init__.py`.
+- [x] `src/models/fusion/cross_attention.py` — Co-attention fusion: image patches attend over text tokens and vice versa; output pooled `(B, D_fused)`.
+- [x] (Optional ablations) element-wise and concat fusion stubs in same file with a `fusion_type` factory.
 
 ### 2.3 Decoders
 
