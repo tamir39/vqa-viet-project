@@ -79,9 +79,9 @@
 
 ### 2.4 Data loading
 
-- [ ] `src/data_loader/vqa_dataset.py` — Torch `Dataset` reading processed JSON rows + loading + transforming images.
-- [ ] `src/data_loader/collate.py` — Pads question token ids and answer token ids; returns batch dict ready for the modular model.
-- [ ] `src/data_loader/augment.py` — Image augmentation (resize, color jitter, RandAugment) and text paraphrase / synonym swap. **No back-translation.**
+- [x] `src/data_loader/vqa_dataset.py` — Torch `Dataset` reading processed JSON rows + loading + transforming images. Encodes answers via `AnswerTokenizer`; passes questions through for collate-time PhoBERT tokenization.
+- [x] `src/data_loader/collate.py` — `make_collate_fn(phobert_tokenizer, max_question_length)`: stacks `pixel_values` and `answer_ids`, batch-tokenizes questions, threads `meta` (id/type/difficulty/dish) for eval breakdowns.
+- [x] `src/data_loader/augment.py` — Train-time image augmentation (RandomResizedCrop + flip + ColorJitter + RandAugment, preserving the backbone-correct Normalize) and a conservative single-phrase Vietnamese synonym swap. **No back-translation.**
 
 ### 2.5 Model assembly + trainer
 
