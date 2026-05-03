@@ -1,9 +1,222 @@
-﻿[
-    {
-        "id": "sample-001",
-        "image": "path/to/image.jpg",
-        "question": "",
-        "answer": "",
-        "type": "action"
-    }
+[
+  {
+    "id": "vfvqa-000001",
+    "image": "raw/images/pho_001.jpg",
+    "image_id": "pho_001",
+    "dish": "pho",
+    "question": "Đây là món gì?",
+    "answer": "phở",
+    "type": "recognition",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000002",
+    "image": "raw/images/pho_001.jpg",
+    "image_id": "pho_001",
+    "dish": "pho",
+    "question": "Món này có cay không?",
+    "answer": "không",
+    "type": "yes_no",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000003",
+    "image": "raw/images/pho_002.jpg",
+    "image_id": "pho_002",
+    "dish": "pho",
+    "question": "Có bao nhiêu miếng thịt?",
+    "answer": "3",
+    "type": "counting",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000004",
+    "image": "raw/images/pho_002.jpg",
+    "image_id": "pho_002",
+    "dish": "pho",
+    "question": "Món này có nước không?",
+    "answer": "có",
+    "type": "attribute",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000005",
+    "image": "raw/images/pho_003.jpg",
+    "image_id": "pho_003",
+    "dish": "pho",
+    "question": "Hành nằm ở phía nào của tô?",
+    "answer": "trên",
+    "type": "spatial",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000006",
+    "image": "raw/images/pho_003.jpg",
+    "image_id": "pho_003",
+    "dish": "pho",
+    "question": "Món này thường ăn nóng hay lạnh?",
+    "answer": "nóng",
+    "type": "reasoning",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000007",
+    "image": "raw/images/pho_004.jpg",
+    "image_id": "pho_004",
+    "dish": "pho",
+    "question": "Đây là món gì?",
+    "answer": "phở",
+    "type": "recognition",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000008",
+    "image": "raw/images/pho_004.jpg",
+    "image_id": "pho_004",
+    "dish": "pho",
+    "question": "Có bao nhiêu lát ớt?",
+    "answer": "hai",
+    "type": "counting",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000009",
+    "image": "raw/images/banhmi_001.jpg",
+    "image_id": "banhmi_001",
+    "dish": "banh_mi",
+    "question": "Đây là món gì?",
+    "answer": "bánh mì",
+    "type": "recognition",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000010",
+    "image": "raw/images/banhmi_001.jpg",
+    "image_id": "banhmi_001",
+    "dish": "banh_mi",
+    "question": "Bánh mì có pate không?",
+    "answer": "có",
+    "type": "yes_no",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000011",
+    "image": "raw/images/banhmi_002.jpg",
+    "image_id": "banhmi_002",
+    "dish": "banh_mi",
+    "question": "Bên trong bánh có rau gì?",
+    "answer": "rau thơm",
+    "type": "attribute",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000012",
+    "image": "raw/images/banhmi_002.jpg",
+    "image_id": "banhmi_002",
+    "dish": "banh_mi",
+    "question": "Có bao nhiêu lát dưa leo?",
+    "answer": "2",
+    "type": "counting",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000013",
+    "image": "raw/images/banhmi_003.jpg",
+    "image_id": "banhmi_003",
+    "dish": "banh_mi",
+    "question": "Thịt nằm ở giữa hay bên ngoài bánh?",
+    "answer": "giữa",
+    "type": "spatial",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000014",
+    "image": "raw/images/banhmi_003.jpg",
+    "image_id": "banhmi_003",
+    "dish": "banh_mi",
+    "question": "Món này thường ăn vào bữa nào?",
+    "answer": "bữa sáng",
+    "type": "reasoning",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000015",
+    "image": "raw/images/banhmi_004.jpg",
+    "image_id": "banhmi_004",
+    "dish": "banh_mi",
+    "question": "Bánh có vỏ giòn không?",
+    "answer": "có",
+    "type": "yes_no",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000016",
+    "image": "raw/images/bunbo_001.jpg",
+    "image_id": "bunbo_001",
+    "dish": "bun_bo",
+    "question": "Đây là món gì?",
+    "answer": "bún bò",
+    "type": "recognition",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000017",
+    "image": "raw/images/bunbo_001.jpg",
+    "image_id": "bunbo_001",
+    "dish": "bun_bo",
+    "question": "Món này có cay không?",
+    "answer": "có",
+    "type": "yes_no",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000018",
+    "image": "raw/images/bunbo_002.jpg",
+    "image_id": "bunbo_002",
+    "dish": "bun_bo",
+    "question": "Có bao nhiêu khoanh giò?",
+    "answer": "1",
+    "type": "counting",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000019",
+    "image": "raw/images/bunbo_002.jpg",
+    "image_id": "bunbo_002",
+    "dish": "bun_bo",
+    "question": "Nước dùng có màu gì?",
+    "answer": "đỏ",
+    "type": "attribute",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000020",
+    "image": "raw/images/bunbo_003.jpg",
+    "image_id": "bunbo_003",
+    "dish": "bun_bo",
+    "question": "Rau sống nằm ở đâu trong bát?",
+    "answer": "trên",
+    "type": "spatial",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000021",
+    "image": "raw/images/bunbo_003.jpg",
+    "image_id": "bunbo_003",
+    "dish": "bun_bo",
+    "question": "Món này có nguồn gốc từ vùng nào?",
+    "answer": "huế",
+    "type": "reasoning",
+    "source": "scrape"
+  },
+  {
+    "id": "vfvqa-000022",
+    "image": "raw/images/bunbo_004.jpg",
+    "image_id": "bunbo_004",
+    "dish": "bun_bo",
+    "question": "Đây là món gì?",
+    "answer": "bún bò",
+    "type": "recognition",
+    "source": "scrape"
+  }
 ]
