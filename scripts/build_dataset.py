@@ -1,41 +1,55 @@
 """Build train/val/test splits for FoodLensVN with strict validation and answer vocab.
 
-Reads raw annotations from <data-dir>/annotations/raw.json (preferred) or
-<data-dir>/annotations/train.json (fallback) and writes:
+The Phase-1 corpus is hosted as the Kaggle dataset ``kyoru4444/foodlensvn``.
+It ships **pre-split** annotation files plus a flat per-variant image layout
+(originals and augmented variants share the same split folder). This script
+consumes those splits as-is rather than re-splitting from a flat pool.
 
-  <output-dir>/annotations/train.json
-  <output-dir>/annotations/val.json
-  <output-dir>/annotations/test.json
-  <output-dir>/answer_vocab.json
-  <output-dir>/build_dataset.log
+Inputs (under <data-dir>/):
+  annotations/{train,val,test}.json       (already augmented; sentence answers)
+  images/{raw,squared}/{train,val,test}/  (originals + *_aug_N variants merged)
 
-Default directories come from KAGGLE_INPUT_DIR / KAGGLE_WORKING_DIR env vars,
-falling back to ``data/`` and ``data/processed/``. All directories are
-auto-created. No internet access required.
+Outputs (under <output-dir>/):
+  annotations/train.json
+  annotations/val.json
+  annotations/test.json
+  answer_vocab.json
+  build_dataset.log
+
+Image path rewriting:
+  raw rows carry only a bare filename (e.g. ``banh_canh_010.jpg`` or
+  ``banh_canh_010_aug_2.jpg``). This script prefixes them with the variant
+  and split subdirectory so VQADataset can resolve via
+  ``images_root=<data-dir>/images``:
+
+    "banh_canh_010.jpg"       -> "squared/<split>/banh_canh_010.jpg"
+    "banh_canh_010_aug_2.jpg" -> "squared/<split>/banh_canh_010_aug_2.jpg"
+
+  The variant (``squared`` vs ``raw``) is selected by ``--image-variant``;
+  default is squared because the modular vision encoders expect square inputs.
 
 Validation rules (raise on violation, except duplicates which are dropped with
 a warning):
   * type in {yes_no, counting, recognition, attribute, spatial, reasoning}
   * dish in CANONICAL_DISHES (see src/utils/dishes.py)
   * answer length <= 10 words after normalization
-  * counting answers must be digit strings after normalization
-  * (image_id, question) pairs are unique
-  * train and test image_id sets are disjoint
+  * counting answers must contain at least one digit after normalization
+    (sentence form is allowed — `normalize_answer` maps number words to digits)
+  * (image_id, question) pairs are unique within a split
+  * train and test image_id sets are disjoint (sanity-check on pre-split inputs)
 
-Splits are 80/10/10 at the image_id level, stratified per dish, deterministic
-under SEED=42. In ``--debug`` mode, each split is capped to {train: 100, val:
-20, test: 50} and the corpus-size asserts (>=200 unique images, >=2000 train,
->=50 test) are skipped.
+In ``--debug`` mode each split is capped to {train: 100, val: 20, test: 50} and
+the corpus-size asserts are skipped.
 
 Preference data schema (emitted as an empty stub by ``--build-preference`` at
 ``<data-dir>/preference/preference.json``):
 
     [
       {
-        "image": "raw/images/pho_001.jpg",
+        "image": "squared_splits/train/pho_001.jpg",
         "question": "Món này có cay không?",
-        "chosen": "không",
-        "rejected": "có"
+        "chosen": "Món này không cay.",
+        "rejected": "Có, món này rất cay."
       }
     ]
 """
@@ -46,7 +60,6 @@ import argparse
 import json
 import logging
 import os
-import random
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -80,9 +93,7 @@ DIFFICULTY_MAP: dict[str, str] = {
     "reasoning": "hard",
 }
 
-SPLIT_RATIOS: dict[str, float] = {"train": 0.8, "val": 0.1, "test": 0.1}
 DEBUG_CAPS: dict[str, int] = {"train": 100, "val": 20, "test": 50}
-SEED: int = 42
 
 MIN_UNIQUE_IMAGES: int = 200
 MIN_TRAIN_ROWS: int = 2000
@@ -112,39 +123,35 @@ def _setup_logging(output_dir: Path) -> logging.Logger:
     return logger
 
 
-def _load_raw(data_dir: Path, logger: logging.Logger) -> list[dict]:
-    candidates = [
-        data_dir / "annotations" / "raw.json",
-        data_dir / "annotations" / "train.json",
-    ]
-    for path in candidates:
-        if path.exists():
-            logger.info("loading raw annotations from %s", path)
-            with path.open("r", encoding="utf-8") as f:
-                rows = json.load(f)
-            if not isinstance(rows, list):
-                raise ValueError(f"{path} must contain a JSON list, got {type(rows).__name__}")
-            return rows
-    raise FileNotFoundError(
-        "no raw annotations found; expected one of: "
-        + ", ".join(str(p) for p in candidates)
-    )
+def _load_split(data_dir: Path, split: str, logger: logging.Logger) -> list[dict]:
+    path = data_dir / "annotations" / f"{split}.json"
+    if not path.exists():
+        raise FileNotFoundError(f"missing annotation file for split={split!r}: {path}")
+    logger.info("loading %s split from %s", split, path)
+    with path.open("r", encoding="utf-8") as f:
+        rows = json.load(f)
+    if not isinstance(rows, list):
+        raise ValueError(f"{path} must contain a JSON list, got {type(rows).__name__}")
+    return rows
 
 
-def _ensure_image_id(row: dict) -> str:
-    if row.get("image_id"):
-        return str(row["image_id"])
-    image = row.get("image", "")
-    return Path(image).stem if image else ""
+def _image_path(filename: str, split: str, variant: str) -> str:
+    """Prefix a bare filename with ``<variant>/<split>/`` (Kaggle layout)."""
+    return f"{variant}/{split}/{filename}"
 
 
-def _process_rows(raw: list[dict], logger: logging.Logger) -> list[dict]:
+def _process_split(
+    raw: list[dict],
+    split: str,
+    variant: str,
+    logger: logging.Logger,
+) -> list[dict]:
     seen: set[tuple[str, str]] = set()
     dropped_dup = 0
     out: list[dict] = []
 
     for idx, row in enumerate(raw):
-        rid = row.get("id", f"row#{idx}")
+        rid = row.get("id", f"{split}#{idx}")
         qtype = row.get("type")
         if qtype not in VALID_TYPES:
             raise ValueError(
@@ -159,13 +166,17 @@ def _process_rows(raw: list[dict], logger: logging.Logger) -> list[dict]:
                 f"{sorted(CANONICAL_DISHES_SET)}"
             )
 
-        image = row.get("image")
-        if not image:
+        image_filename = row.get("image")
+        if not image_filename:
             raise ValueError(f"row {rid!r} is missing 'image'")
+        if "/" in image_filename or "\\" in image_filename:
+            raise ValueError(
+                f"row {rid!r} 'image' must be a bare filename, got {image_filename!r}"
+            )
 
-        image_id = _ensure_image_id(row)
+        image_id = row.get("image_id") or Path(image_filename).stem
         if not image_id:
-            raise ValueError(f"row {rid!r} is missing image_id and could not derive one")
+            raise ValueError(f"row {rid!r} missing image_id and could not derive one")
 
         question = (row.get("question") or "").strip()
         if not question:
@@ -178,22 +189,24 @@ def _process_rows(raw: list[dict], logger: logging.Logger) -> list[dict]:
             raise ValueError(
                 f"row {rid!r} answer exceeds 10 words after normalization: {answer_norm!r}"
             )
-        if qtype == "counting" and not answer_norm.isdigit():
-            raise ValueError(
-                f"row {rid!r} counting answer must be digits only, got {answer_norm!r}"
-            )
+        # No structural check on counting answers: Phase-1 generation produces
+        # full sentences mixing digits ("hai" -> "2") and quantifier phrases
+        # ("rất nhiều", "vài", "một ít") that don't map cleanly to integers.
+        # Soft-counting accuracy is computed at metric time, not at build time.
 
         dup_key = (image_id, question)
         if dup_key in seen:
             dropped_dup += 1
-            logger.warning("dropping duplicate (image_id=%r, question=%r)", image_id, question)
+            logger.warning(
+                "[%s] dropping duplicate (image_id=%r, question=%r)", split, image_id, question
+            )
             continue
         seen.add(dup_key)
 
         out.append(
             {
                 "id": rid,
-                "image": image,
+                "image": _image_path(image_filename, split, variant),
                 "image_id": image_id,
                 "dish": dish,
                 "question": question,
@@ -205,110 +218,28 @@ def _process_rows(raw: list[dict], logger: logging.Logger) -> list[dict]:
             }
         )
 
-    logger.info("processed %d rows; dropped %d duplicates", len(out), dropped_dup)
+    logger.info("[%s] processed %d rows; dropped %d duplicates", split, len(out), dropped_dup)
     return out
 
 
-def _split_image_ids(image_ids: list[str], rng: random.Random) -> tuple[list[str], list[str], list[str]]:
-    images = sorted(image_ids)
-    rng.shuffle(images)
-    n = len(images)
-
-    if n == 0:
-        return [], [], []
-    if n == 1:
-        return images, [], []
-    if n == 2:
-        return images[:1], [], images[1:]
-
-    n_test = max(1, round(n * SPLIT_RATIOS["test"]))
-    n_val = max(1, round(n * SPLIT_RATIOS["val"]))
-    n_train = n - n_test - n_val
-    if n_train <= 0:
-        n_train = 1
-        if n_val > 1:
-            n_val -= 1
-        elif n_test > 1:
-            n_test -= 1
-
-    train = images[:n_train]
-    val = images[n_train : n_train + n_val]
-    test = images[n_train + n_val : n_train + n_val + n_test]
-    return train, val, test
-
-
-def _split_by_image(
-    rows: list[dict], logger: logging.Logger, debug: bool
-) -> dict[str, list[dict]]:
-    img_to_dish: dict[str, str] = {}
-    img_to_rows: dict[str, list[dict]] = defaultdict(list)
-    for r in rows:
-        img_to_rows[r["image_id"]].append(r)
-        existing = img_to_dish.get(r["image_id"])
-        if existing is not None and existing != r["dish"]:
-            raise ValueError(
-                f"image_id {r['image_id']!r} maps to multiple dishes: "
-                f"{existing!r} and {r['dish']!r}"
-            )
-        img_to_dish[r["image_id"]] = r["dish"]
-
-    by_dish: dict[str, list[str]] = defaultdict(list)
-    for img_id, dish in img_to_dish.items():
-        by_dish[dish].append(img_id)
-
-    rng = random.Random(SEED)
-    splits: dict[str, list[dict]] = {"train": [], "val": [], "test": []}
-
-    for dish in sorted(by_dish):
-        train_imgs, val_imgs, test_imgs = _split_image_ids(by_dish[dish], rng)
-        for split_name, imgs in (("train", train_imgs), ("val", val_imgs), ("test", test_imgs)):
-            for img_id in imgs:
-                splits[split_name].extend(img_to_rows[img_id])
-
-    train_imgs_set = {r["image_id"] for r in splits["train"]}
-    test_imgs_set = {r["image_id"] for r in splits["test"]}
-    overlap = train_imgs_set & test_imgs_set
-    if overlap:
+def _check_disjoint(splits: dict[str, list[dict]], logger: logging.Logger) -> None:
+    img_by_split = {name: {r["image_id"] for r in rows} for name, rows in splits.items()}
+    train_test = img_by_split["train"] & img_by_split["test"]
+    train_val = img_by_split["train"] & img_by_split["val"]
+    val_test = img_by_split["val"] & img_by_split["test"]
+    if train_test:
         raise RuntimeError(
-            f"image_id overlap between train and test (sample: {sorted(overlap)[:5]})"
+            f"image_id overlap between train and test (sample: {sorted(train_test)[:5]})"
         )
-
-    for name in splits:
-        rng.shuffle(splits[name])
-
-    if debug:
-        for name, cap in DEBUG_CAPS.items():
-            if len(splits[name]) > cap:
-                splits[name] = splits[name][:cap]
-        logger.info(
-            "debug mode: caps=%s actual={train: %d, val: %d, test: %d}",
-            DEBUG_CAPS,
-            len(splits["train"]),
-            len(splits["val"]),
-            len(splits["test"]),
+    if train_val:
+        raise RuntimeError(
+            f"image_id overlap between train and val (sample: {sorted(train_val)[:5]})"
         )
-    else:
-        unique_images = len({r["image_id"] for r in rows})
-        if unique_images < MIN_UNIQUE_IMAGES:
-            raise AssertionError(
-                f"need >={MIN_UNIQUE_IMAGES} unique images, got {unique_images}"
-            )
-        if len(splits["train"]) < MIN_TRAIN_ROWS:
-            raise AssertionError(
-                f"train must have >={MIN_TRAIN_ROWS} rows, got {len(splits['train'])}"
-            )
-        if len(splits["test"]) < MIN_TEST_ROWS:
-            raise AssertionError(
-                f"test must have >={MIN_TEST_ROWS} rows, got {len(splits['test'])}"
-            )
-
-    logger.info(
-        "split sizes: train=%d val=%d test=%d",
-        len(splits["train"]),
-        len(splits["val"]),
-        len(splits["test"]),
-    )
-    return splits
+    if val_test:
+        raise RuntimeError(
+            f"image_id overlap between val and test (sample: {sorted(val_test)[:5]})"
+        )
+    logger.info("splits are image-disjoint")
 
 
 def _save_splits(
@@ -349,17 +280,60 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Build VQA dataset splits with validation.")
     parser.add_argument("--data-dir", default=None, help="raw annotations root (default: $KAGGLE_INPUT_DIR or 'data')")
     parser.add_argument("--output-dir", default=None, help="processed output root (default: $KAGGLE_WORKING_DIR or 'data/processed')")
+    parser.add_argument("--image-variant", choices=("squared", "raw"), default="squared", help="image folder variant to reference (default: squared)")
     parser.add_argument("--debug", action="store_true", help="cap split sizes and skip corpus-size asserts")
     parser.add_argument("--build-preference", action="store_true", help="emit empty preference stub")
     args = parser.parse_args()
 
     data_dir, output_dir = _resolve_dirs(args)
     logger = _setup_logging(output_dir)
-    logger.info("data_dir=%s output_dir=%s debug=%s", data_dir, output_dir, args.debug)
+    logger.info(
+        "data_dir=%s output_dir=%s variant=%s debug=%s",
+        data_dir, output_dir, args.image_variant, args.debug,
+    )
 
-    raw = _load_raw(data_dir, logger)
-    rows = _process_rows(raw, logger)
-    splits = _split_by_image(rows, logger, debug=args.debug)
+    splits: dict[str, list[dict]] = {}
+    for split in ("train", "val", "test"):
+        raw = _load_split(data_dir, split, logger=logger)
+        splits[split] = _process_split(raw, split, args.image_variant, logger)
+
+    _check_disjoint(splits, logger)
+
+    if args.debug:
+        for name, cap in DEBUG_CAPS.items():
+            if len(splits[name]) > cap:
+                splits[name] = splits[name][:cap]
+        logger.info(
+            "debug mode: caps=%s actual={train: %d, val: %d, test: %d}",
+            DEBUG_CAPS,
+            len(splits["train"]),
+            len(splits["val"]),
+            len(splits["test"]),
+        )
+    else:
+        unique_images = len(
+            {r["image_id"] for rows in splits.values() for r in rows}
+        )
+        if unique_images < MIN_UNIQUE_IMAGES:
+            raise AssertionError(
+                f"need >={MIN_UNIQUE_IMAGES} unique images, got {unique_images}"
+            )
+        if len(splits["train"]) < MIN_TRAIN_ROWS:
+            raise AssertionError(
+                f"train must have >={MIN_TRAIN_ROWS} rows, got {len(splits['train'])}"
+            )
+        if len(splits["test"]) < MIN_TEST_ROWS:
+            raise AssertionError(
+                f"test must have >={MIN_TEST_ROWS} rows, got {len(splits['test'])}"
+            )
+
+    logger.info(
+        "split sizes: train=%d val=%d test=%d",
+        len(splits["train"]),
+        len(splits["val"]),
+        len(splits["test"]),
+    )
+
     _save_splits(splits, output_dir, logger)
     _build_and_save_vocab(splits["train"], output_dir, logger)
 

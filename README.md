@@ -175,27 +175,30 @@ python scripts/check_env.py
 
 ## Data pipeline
 
-Build splits + answer vocab from the raw annotation pool:
+The Phase-1 corpus is hosted on Kaggle as **[phvngtngtm/foodlensvn](https://www.kaggle.com/datasets/phvngtngtm/foodlensvn)** — 5,572 annotation rows over 20 dishes, with `raw/` and `squared/` image variants. It is **not** committed to git.
 
 ```bash
-# Local debug (uses the 22-row stub at data/annotations/train.json):
-python scripts/build_dataset.py --debug --data-dir data --output-dir data/processed
+# 1. Fetch dataset locally (one-time; needs ~/.kaggle/kaggle.json)
+python scripts/fetch_dataset.py                          # -> data/foodlensvn/
 
-# Full mode (requires real data ≥200 images / ≥2000 train rows):
-python scripts/build_dataset.py --data-dir data --output-dir data/processed
+# 2. Build processed splits + answer vocab
+python scripts/build_dataset.py --data-dir data/foodlensvn
 
-# With DPO preference stub:
-python scripts/build_dataset.py --debug --build-preference
+# Debug mode (caps splits to {train:100, val:20, test:50}):
+python scripts/build_dataset.py --data-dir data/foodlensvn --debug
 ```
 
-CLI flags:
+On Kaggle notebooks, attach the dataset and skip step 1 — `KAGGLE_INPUT_DIR=/kaggle/input/foodlensvn` resolves automatically.
+
+CLI flags for `build_dataset.py`:
 - `--data-dir` — raw root (default: `$KAGGLE_INPUT_DIR` or `data`)
 - `--output-dir` — processed root (default: `$KAGGLE_WORKING_DIR` or `data/processed`)
-- `--debug` — caps splits to `{train: 100, val: 20, test: 50}` and skips corpus-size asserts
+- `--image-variant` — `squared` (default) or `raw`; sets the prefix in row `"image"` paths
+- `--debug` — caps splits and skips corpus-size asserts
 - `--build-preference` — emits an empty `data/preference/preference.json` skeleton
 
 Outputs (under `<output-dir>`):
-- `annotations/train.json`, `val.json`, `test.json`
+- `annotations/{train,val,test}.json` — rows with `"image": "<variant>/<split>/<file>.jpg"`
 - `answer_vocab.json`
 - `build_dataset.log`
 

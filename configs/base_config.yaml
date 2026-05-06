@@ -24,12 +24,20 @@ models:
   B2:
     model_path: "path/to/B2/model"
 
-# Dataset paths (2000-sample subset for development)
+# Dataset paths
+# Source data lives on Kaggle (phvngtngtm/foodlensvn) and is either:
+#   - mounted at /kaggle/input/foodlensvn (Kaggle notebooks), or
+#   - downloaded locally via `python scripts/fetch_dataset.py` to data/foodlensvn/
+# build_dataset.py reads from <data_dir>, writes processed splits to <output_dir>.
 dataset:
-  train_path: "data/processed/train_2000.json"
-  val_path: "data/processed/val_2000.json"
-  test_path: "data/processed/test_2000.json"
-  images_dir: "data/raw/images"
+  data_dir: "data/foodlensvn"               # raw root: annotations/ + images/
+  output_dir: "data/processed"              # processed splits + answer_vocab
+  images_dir: "data/foodlensvn/images"      # used at training time
+  image_variant: "squared"                  # squared|raw — annotation paths are <variant>/<split>/<file>
+  train_path: "data/processed/annotations/train.json"
+  val_path: "data/processed/annotations/val.json"
+  test_path: "data/processed/annotations/test.json"
+  answer_vocab: "data/processed/answer_vocab.json"
 
 # Logging and Output
 logging:

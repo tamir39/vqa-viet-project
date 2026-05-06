@@ -23,6 +23,16 @@ CANONICAL_DISHES: tuple[str, ...] = (
     "banh_xeo",
     "mi_quang",
     "hu_tieu",
+    "banh_cuon",
+    "bun_thit_nuong",
+    "cao_lau",
+    "bot_chien",
+    "banh_khot",
+    "xoi_xeo",
+    "chao_long",
+    "bun_dau_mam_tom",
+    "bun_mam",
+    "banh_canh",
 )
 
 CANONICAL_DISHES_SET: frozenset[str] = frozenset(CANONICAL_DISHES)
@@ -38,6 +48,16 @@ DISH_DISPLAY_NAMES: dict[str, str] = {
     "banh_xeo": "Bánh xèo",
     "mi_quang": "Mì Quảng",
     "hu_tieu": "Hủ tiếu",
+    "banh_cuon": "Bánh cuốn",
+    "bun_thit_nuong": "Bún thịt nướng",
+    "cao_lau": "Cao lầu",
+    "bot_chien": "Bột chiên",
+    "banh_khot": "Bánh khọt",
+    "xoi_xeo": "Xôi xéo",
+    "chao_long": "Cháo lòng",
+    "bun_dau_mam_tom": "Bún đậu mắm tôm",
+    "bun_mam": "Bún mắm",
+    "banh_canh": "Bánh canh",
 }
 
 

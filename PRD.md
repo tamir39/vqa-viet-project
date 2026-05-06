@@ -40,7 +40,7 @@ Plus: a Gradio demo, a written report, and an evaluation pass on the held-out te
 
 | Area | Scope |
 |------|-------|
-| **Dataset** | ≥2000 train rows · ≥200 unique images · 80/10/10 split at `image_id` level, stratified by dish · ≥50 hand-curated test samples, image-disjoint from train · 6 question types (yes_no, counting, recognition, attribute, spatial, reasoning). |
+| **Dataset** | 20 canonical Vietnamese dishes (locked in `src/utils/dishes.py`). ≥2000 train rows · ≥200 unique images · 80/10/10 split at `image_id` level, stratified by dish · ≥50 hand-curated test samples, image-disjoint from train · 6 question types (yes_no, counting, recognition, attribute, spatial, reasoning). Answers are full Vietnamese sentences (≤10 words after canonicalization). |
 | **Canonicalization** | One pure function (`normalize_answer`) shared by data pipeline, training labels, and inference output cleaning. |
 | **Modular pipeline (A1/A2)** | Image encoder (ResNet/ViT via `timm`), PhoBERT text encoder, co-attention fusion, LSTM and Transformer decoders consuming a domain-specific `AnswerTokenizer`. |
 | **Multimodal pipeline (B1/B2)** | Qwen2-VL-2B-Instruct loader (4-bit NF4 default for ≤16 GB GPU), strict Vietnamese system prompt, chat-template inference, LoRA SFT trainer for B2. |

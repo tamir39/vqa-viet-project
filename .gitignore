@@ -5,6 +5,25 @@ data/preference/*
 models/*
 !data/annotations/*.json
 
+# Phase-1 image corpus — download from Kaggle (phvngtngtm/foodlensvn) instead of git.
+# Local clones land in data/foodlensvn/ via scripts/fetch_dataset.py.
+data/foodlensvn/
+data/images/
+data/images (backup)/
+
+# Local artifacts produced by dist/build_kaggle_dataset.py (the Kaggle upload staging dir).
+dist/foodlensvn_kaggle/
+
+# Augmented annotation files are huge (>50k rows each) and regenerable from
+# data/code/augmenters/augment.py — keep them out of git.
+data/annotations/*_augmented.json
+
+# Phase-1 placeholder splits that contain image-only rows with empty Q/A
+# (the canonical sources are *_with_questions.json).
+data/annotations/train.json
+data/annotations/val.json
+data/annotations/test.json
+
 # Python
 __pycache__/
 *.py[cod]
