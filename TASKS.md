@@ -60,7 +60,7 @@
 - [x] `src/models/encoders/__init__.py`.
 - [x] `src/models/encoders/text_encoder.py` — PhoBERT-base wrapper. `forward(input_ids, attention_mask) -> (B, T, D)`. Honors `KAGGLE_NO_INTERNET`. Frozen by default; `unfreeze_last_n` knob.
 - [x] `src/models/encoders/image_encoder.py` — `timm` model wrapper (default `resnet50`; ablation `vit_small_patch16_224`). `forward(pixel_values) -> (B, P, D)` patch features. Pretrained weights, frozen by default. (Adds `timm>=1.0.0` to `pyproject.toml`; run `uv sync` to install.)
-- [ ] Smoke test: load each encoder on CPU with random tensor, assert output shape.
+- [x] Smoke test: load each encoder on CPU with random tensor, assert output shape — [scripts/smoke_encoders.py](scripts/smoke_encoders.py).
 
 ### 2.2 Fusion
 
