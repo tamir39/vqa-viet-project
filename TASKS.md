@@ -95,8 +95,8 @@
 
 ### 2.7 CLI entry-points
 
-- [ ] `scripts/train.py` — `--config <yaml>` deep-merge with `base_config.yaml`; dispatch to the right trainer based on `track` field (`modular | qwen_zeroshot | qwen_lora`).
-- [ ] `scripts/infer.py` — Single (image, question) inference for any config.
+- [x] `scripts/train.py` — `--config <yaml>` deep-merge with `base_config.yaml`; dispatch to the right trainer based on `track` field (`modular | qwen_zeroshot | qwen_lora`). *(modular wired; qwen_zeroshot / qwen_lora dispatch is Phase 3.)*
+- [x] `scripts/infer.py` — Single (image, question) inference for any config. *(modular only; B1/B2 added in Phase 3.)*
 - [ ] Train A1 and A2 end-to-end on the real dataset; confirm checkpoints land in `reports/`.
 
 ---
