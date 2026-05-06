@@ -97,7 +97,7 @@
 
 - [x] `scripts/train.py` — `--config <yaml>` deep-merge with `base_config.yaml`; dispatch to the right trainer based on `track` field (`modular | qwen_zeroshot | qwen_lora`). *(modular wired; qwen_zeroshot / qwen_lora dispatch is Phase 3.)*
 - [x] `scripts/infer.py` — Single (image, question) inference for any config. *(modular only; B1/B2 added in Phase 3.)*
-- [ ] Train A1 and A2 end-to-end on the real dataset; confirm checkpoints land in `reports/`.
+- [x] Train A1 and A2 end-to-end on the real dataset; checkpoints pushed to `Tamir39/foodlensvn-A1` / `-A2` on HF.
 
 ---
 
@@ -105,19 +105,19 @@
 
 ### 3.1 Configs
 
-- [ ] Fill `configs/B1.yaml` — `track: qwen_zeroshot`, model id, generation params.
-- [ ] Fill `configs/B2.yaml` — `track: qwen_lora`, LoRA targets (attention proj only), rank, alpha, dropout.
+- [x] Fill `configs/B1.yaml` — `track: qwen_zeroshot`, model id, generation params.
+- [x] Fill `configs/B2.yaml` — `track: qwen_lora`, LoRA targets (attention proj only), rank, alpha, dropout.
 
 ### 3.2 LoRA SFT trainer (B2)
 
-- [ ] `src/trainer/peft_trainer.py` — TRL `SFTTrainer` over Qwen2-VL with the strict Vietnamese prompt; LoRA via `peft`; NF4 base; gradient checkpointing on.
-- [ ] Hook `scripts/train.py --config configs/B2.yaml` to dispatch here.
+- [x] `src/trainer/peft_trainer.py` — manual LoRA SFT loop over Qwen2-VL with the strict Vietnamese prompt; LoRA via `peft`; NF4 base; gradient checkpointing on.
+- [x] Hook `scripts/train.py --config configs/B2.yaml` to dispatch here.
 - [ ] Train B2 end-to-end on the real dataset; LoRA adapter lands in `reports/B2/adapter/`.
 
 ### 3.3 B1 inference path
 
-- [ ] Wire `scripts/eval.py` to call `qwen_vl.generate` per row when `track == qwen_zeroshot` (no training).
-- [ ] B2 eval: load base + adapter, then same path as B1.
+- [x] Wire `scripts/eval.py` to call `qwen_vl.generate` per row when `track == qwen_zeroshot` (no training).
+- [x] B2 eval: load base + adapter, then same path as B1.
 
 ---
 
@@ -125,17 +125,17 @@
 
 ### 4.1 Metrics module
 
-- [ ] `src/utils/metrics/__init__.py`.
-- [ ] `src/utils/metrics/vqa_accuracy.py` — exact + soft (type-aware: yes_no exact, counting digit-equality, others token-overlap).
-- [ ] `src/utils/metrics/text_metrics.py` — BLEU (sacrebleu), ROUGE-L (rouge-score), METEOR (nltk).
-- [ ] `src/utils/metrics/bertscore.py` — `bert-score` with `xlm-roberta-base`; honors `KAGGLE_NO_INTERNET`.
-- [ ] `src/utils/metrics/llm_judge.py` — local LLM (Qwen2-VL text-only or another) prompted for yes/no equivalence; offline.
-- [ ] `src/utils/metrics/aggregate.py` — Compute all metrics, then group by `type` and `difficulty`; return a single dict.
+- [x] `src/utils/metrics/__init__.py`.
+- [x] `src/utils/metrics/vqa_accuracy.py` — exact + soft (type-aware: yes_no exact, counting digit-equality, others token-overlap F1).
+- [x] `src/utils/metrics/text_metrics.py` — BLEU (nltk corpus_bleu + smoothing1), ROUGE-L (rouge-score), METEOR (nltk).
+- [x] `src/utils/metrics/bertscore.py` — `bert-score` with `xlm-roberta-base`; honors `KAGGLE_NO_INTERNET`.
+- [x] `src/utils/metrics/llm_judge.py` — Qwen2-VL text-only prompted for yes/no equivalence; off by default, opt-in via `--llm-judge`.
+- [x] `src/utils/metrics/aggregate.py` — Compute all metrics, then group by `type` and `difficulty`; return a single dict.
 
 ### 4.2 `scripts/eval.py`
 
-- [ ] Loads config + checkpoint/adapter, runs inference on test split, applies `_clean_output` + `normalize_answer`, calls `aggregate`, writes `reports/<config>_metrics.json`.
-- [ ] Writes `reports/<config>_errors.json` with the rows where prediction ≠ gold (cap to N=200 for size).
+- [x] Loads config + checkpoint/adapter, runs inference on test split, applies `normalize_answer`, calls `aggregate`, writes `reports/<config>_metrics.json`.
+- [x] Writes `reports/<config>_errors.json` with the rows where prediction ≠ gold (cap to N=200 for size).
 - [ ] Verify: all four configs produce both files cleanly.
 
 ---
