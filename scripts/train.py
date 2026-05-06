@@ -50,6 +50,7 @@ from src.models.encoders.text_encoder import PhoBERTTextEncoder, load_phobert_to
 from src.models.fusion.cross_attention import build_fusion
 from src.models.modular_vqa import ModularVQA
 from src.trainer import ModularTrainer, TrainerConfig
+from src.trainer.peft_trainer import PeftTrainer, PeftTrainerConfig
 
 
 BASE_CONFIG = ROOT / "configs" / "base_config.yaml"
@@ -219,6 +220,52 @@ def _train_modular(cfg: dict[str, Any]) -> None:
     print(f"checkpoints: {output_dir / 'checkpoints'}")
 
 
+def _train_qwen_lora(cfg: dict[str, Any]) -> None:
+    ds_cfg = cfg["dataset"]
+    md_cfg = cfg["model"]
+    tr_cfg = cfg["training"]
+    lora_cfg = cfg.get("lora", {})
+    output_dir = Path(cfg["logging"]["output_dir"])
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    pcfg = PeftTrainerConfig(
+        output_dir=str(output_dir),
+        epochs=tr_cfg.get("epochs", 3),
+        lr=tr_cfg.get("lr", 2.0e-4),
+        weight_decay=tr_cfg.get("weight_decay", 0.0),
+        warmup_ratio=tr_cfg.get("warmup_ratio", 0.03),
+        batch_size=tr_cfg.get("batch_size", 2),
+        grad_accum_steps=tr_cfg.get("grad_accum_steps", 8),
+        grad_clip=tr_cfg.get("grad_clip", 0.3),
+        gradient_checkpointing=tr_cfg.get("gradient_checkpointing", True),
+        amp=tr_cfg.get("amp", True),
+        log_every=tr_cfg.get("log_every", 25),
+        lora_r=lora_cfg.get("r", 16),
+        lora_alpha=lora_cfg.get("alpha", 32),
+        lora_dropout=lora_cfg.get("dropout", 0.05),
+        lora_bias=lora_cfg.get("bias", "none"),
+        lora_target_modules=lora_cfg.get(
+            "target_modules", ["q_proj", "k_proj", "v_proj", "o_proj"]
+        ),
+    )
+
+    trainer = PeftTrainer(
+        train_rows=ds_cfg["train_path"],
+        val_rows=ds_cfg["val_path"],
+        images_root=ds_cfg["images_dir"],
+        cfg=pcfg,
+        model_id=md_cfg.get("model_id", "Qwen/Qwen2-VL-2B-Instruct"),
+        quantize_4bit=md_cfg.get("quantize_4bit", True),
+    )
+
+    with (output_dir / "config.yaml").open("w", encoding="utf-8") as f:
+        yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
+
+    result = trainer.fit()
+    print(f"\ndone. best_val_loss={result['best_val_loss']:.4f}")
+    print(f"adapter: {output_dir / 'adapter'}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument(
@@ -236,10 +283,12 @@ def main() -> None:
     track = cfg["model"]["track"]
     if track == "modular":
         _train_modular(cfg)
-    elif track in ("qwen_zeroshot", "qwen_lora"):
+    elif track == "qwen_lora":
+        _train_qwen_lora(cfg)
+    elif track == "qwen_zeroshot":
         sys.exit(
-            f"track={track!r} dispatch is Phase-3 work (see TASKS.md §3.2/§3.3); "
-            "scripts/train.py only handles 'modular' so far."
+            "track='qwen_zeroshot' (B1) has no training step; "
+            "run scripts/eval.py --config configs/B1.yaml instead."
         )
     else:
         sys.exit(f"unknown model.track {track!r}")

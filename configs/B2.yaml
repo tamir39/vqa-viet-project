@@ -1,1 +1,38 @@
-﻿# Configuration for B2
+# B2 — Qwen2-VL-2B-Instruct LoRA SFT on FoodLensVN.
+# Trainer: src/trainer/peft_trainer.py (TRL SFTTrainer + peft).
+# NF4 base + LoRA on attention projections; gradient checkpointing on.
+# Adapter lands in reports/B2/adapter/.
+
+name: "B2"
+
+model:
+  track: "qwen_lora"
+  model_id: "Qwen/Qwen2-VL-2B-Instruct"
+  quantize_4bit: true                         # NF4 base, frozen
+  generation:
+    max_new_tokens: 20
+    do_sample: false
+
+# LoRA — attention projections only (q/k/v/o), per Phase-3 plan.
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  bias: "none"
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+# SFT training. Smaller batch + grad-accum because 2B-VL + 16GB VRAM.
+training:
+  epochs: 3
+  lr: 2.0e-4
+  weight_decay: 0.0
+  warmup_ratio: 0.03
+  batch_size: 2
+  grad_accum_steps: 8                         # effective batch ≈ 16
+  grad_clip: 0.3
+  gradient_checkpointing: true
+  amp: true                                   # bf16 compute (NF4 already 4-bit)
+  log_every: 25
+
+logging:
+  output_dir: "reports/B2"

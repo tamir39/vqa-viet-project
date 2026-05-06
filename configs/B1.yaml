@@ -1,1 +1,16 @@
-﻿# Configuration for B1
+# B1 — Qwen2-VL-2B-Instruct zero-shot inference (no training).
+# Used by scripts/eval.py: each test row goes through qwen_vl.generate
+# under the strict Vietnamese system prompt. No optimizer / dataloader needed.
+
+name: "B1"
+
+model:
+  track: "qwen_zeroshot"
+  model_id: "Qwen/Qwen2-VL-2B-Instruct"
+  quantize_4bit: true                         # NF4 default for 16 GB GPUs
+  generation:
+    max_new_tokens: 20
+    do_sample: false                          # greedy
+
+logging:
+  output_dir: "reports/B1"
