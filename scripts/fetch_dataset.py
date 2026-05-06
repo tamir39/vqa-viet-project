@@ -26,7 +26,7 @@ DEFAULT_DEST = Path("data/foodlensvn")
 
 def _download(dest: Path, force: bool) -> None:
     try:
-        from huggingface_hub import snapshot_download
+        from huggingface_hub import HfApi, snapshot_download
     except ImportError:
         sys.exit("huggingface_hub not installed. Run: uv sync")
 
@@ -38,6 +38,41 @@ def _download(dest: Path, force: bool) -> None:
         local_dir=str(dest),
         force_download=force,
         token=os.environ.get("HF_TOKEN"),
+        max_workers=8,
+    )
+
+    # Verify completeness: HF list_repo_files vs. what landed locally.
+    # snapshot_download is meant to be idempotent — but a previous run that
+    # was killed mid-transfer can leave a partial tree. Compare counts and
+    # re-call snapshot_download (which only fetches what's missing) until the
+    # local tree matches the remote.
+    api = HfApi()
+    expected = {f for f in api.list_repo_files(REPO_ID, repo_type=REPO_TYPE)
+                if f.endswith(".jpg") or f.endswith(".json")}
+    for attempt in range(3):
+        local = {
+            str(p.relative_to(dest)).replace("\\", "/")
+            for p in dest.rglob("*")
+            if p.is_file() and (p.suffix == ".jpg" or p.suffix == ".json")
+        }
+        missing = expected - local
+        if not missing:
+            return
+        print(
+            f"  retry {attempt + 1}/3: {len(missing)} files still missing "
+            f"(e.g. {sorted(missing)[0]}) — resuming download"
+        )
+        snapshot_download(
+            repo_id=REPO_ID,
+            repo_type=REPO_TYPE,
+            local_dir=str(dest),
+            token=os.environ.get("HF_TOKEN"),
+            max_workers=8,
+        )
+
+    sys.exit(
+        f"download still incomplete after retries: {len(missing)} files missing. "
+        "re-run with --force to redownload from scratch."
     )
 
 
@@ -72,11 +107,9 @@ def main() -> None:
     args = parser.parse_args()
 
     dest = Path(args.dest)
-    if dest.is_dir() and (dest / "annotations").is_dir() and not args.force:
-        print(f"{dest} already populated; skipping download (pass --force to redownload)")
-        _summarize(dest)
-        return
-
+    # Always call _download — snapshot_download skips files whose etag matches
+    # the local copy, so re-running is cheap when nothing changed but heals a
+    # partial tree from an interrupted earlier run.
     _download(dest, force=args.force)
     _summarize(dest)
 
