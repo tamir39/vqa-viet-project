@@ -17,29 +17,31 @@ Evaluation suite: VQA Accuracy (exact + soft), BLEU, ROUGE-L, METEOR, BERTScore 
 
 ## Current status
 
-This repo is in **scaffold + foundations** stage. Schema, canonicalization, vocabulary, dataset builder, and the Qwen2-VL prompt/loader are implemented and tested. Encoders, decoders, fusion, trainers, evaluation, and the demo app are still empty placeholders.
+Phase-1 dataset is shipped on Kaggle (**[phvngtngtm/foodlensvn](https://www.kaggle.com/datasets/phvngtngtm/foodlensvn)**, 5,572 rows, 20 dishes, 28 MB). Foundations + the full modular pipeline (encoders, fusion, decoders, dataset class, model assembly) are implemented. Trainers, evaluation, and the demo app are still pending.
 
 ### Implemented
 
-- **`src/utils/vn_text.py`** — `normalize_answer(text)`: the single source of truth for canonicalizing Vietnamese answers (lowercase + trim + yes/no whole-string match + Vietnamese-number-word → digit mapping + classifier-suffix strip + trailing-punctuation strip).
-- **`src/data_loader/answer_tokenizer.py`** — `AnswerTokenizer`: small domain-specific answer vocabulary for the modular decoders (separate from the question-side PhoBERT tokenizer). Fixed special ids (`<pad>`=0, `<bos>`=1, `<eos>`=2, `<unk>`=3), `MAX_LEN=12`, frequency-sorted vocab with `min_freq` and `max_vocab_size` controls, JSON save/load.
-- **`scripts/build_dataset.py`** — Validates raw annotations, enriches with `answer_type` and `difficulty`, deduplicates `(image_id, question)`, splits 80/10/10 at the **image_id level** stratified by dish (image-disjoint train↔test), and builds the answer vocab from training answers. Supports `--debug` (size caps) and `--build-preference` (DPO stub).
-- **`src/models/multimodal/qwen_vl.py`** — Qwen2-VL-2B-Instruct loader (4-bit NF4 by default for ≤16 GB GPU; bf16 fallback), strict Vietnamese system prompt, chat-template message builder, and an output cleaner that strips prompt echoes (`Trả lời:` / `Câu hỏi:`), trailing punctuation, and re-canonicalizes via `normalize_answer`.
-- **`scripts/check_env.py`** — Sanity check for GPU + library imports + base config loading.
-- **`data/annotations/train.json`** — 22-row valid stub across 3 dishes covering all 6 question types (used for `--debug` smoke runs until real data lands).
+- **`src/utils/vn_text.py`** — `normalize_answer(text)`: single source of truth for Vietnamese answer canonicalization.
+- **`src/utils/dishes.py`** — `CANONICAL_DISHES` (locked 20-dish set) + display names.
+- **`src/data_loader/answer_tokenizer.py`** — `AnswerTokenizer`: domain-specific answer vocab (`<pad>`=0, `<bos>`=1, `<eos>`=2, `<unk>`=3), `MAX_LEN=12`, JSON save/load. Phase-1 vocab size: 453.
+- **`src/data_loader/vqa_dataset.py`** + **`collate.py`** + **`augment.py`** — dataset class reading processed splits, batched padding/PhoBERT tokenization, image augmentation.
+- **`src/models/encoders/{image,text}_encoder.py`** — `timm` image encoder (default ResNet50; ablation ViT-S/16) and PhoBERT text encoder.
+- **`src/models/fusion/cross_attention.py`** — co-attention fusion (primary) + element-wise / concat (ablations).
+- **`src/models/decoders/{lstm,transformer}_decoder.py`** — LSTM (A1) and Transformer (A2) decoders over `AnswerTokenizer`.
+- **`src/models/modular_vqa.py`** — end-to-end module wiring encoders → fusion → decoder.
+- **`scripts/build_dataset.py`** — validates raw annotations, enriches with `answer_type` / `difficulty`, deduplicates, prefixes image paths to `<variant>/<split>/<file>`. Reads pre-split inputs from `<data-dir>/annotations/{train,val,test}.json`.
+- **`scripts/fetch_dataset.py`** — pulls the Kaggle dataset to `data/foodlensvn/` for local dev.
+- **`src/models/multimodal/qwen_vl.py`** — Qwen2-VL-2B-Instruct loader (4-bit NF4), strict Vietnamese prompt, output cleaner.
+- **`scripts/check_env.py`** — GPU + library + config sanity check.
 
 ### Not yet implemented
 
-- `src/models/encoders/` — image encoder (ResNet/ViT/EfficientNet via `timm`) and text encoder (PhoBERT, BiLSTM)
-- `src/models/fusion/` — co-attention (primary), element-wise, concat (ablations)
-- `src/models/decoders/` — LSTM and Transformer decoders consuming the `AnswerTokenizer` vocab
 - `src/trainer/` — modular trainer (A1/A2 with token-level CE) and PEFT trainer (B2 with LoRA via TRL)
 - `src/utils/metrics/` — VQA accuracy, BLEU/ROUGE/METEOR, BERTScore, LLM-judge
-- `src/data_loader/vqa_dataset.py`, `collate.py`, `augment.py` — dataset class, batching, paraphrase/synonym augmentation
 - `scripts/train.py`, `scripts/eval.py`, `scripts/infer.py`
 - `app/demo.py` — Gradio interactive UI
 - Filled `configs/A1.yaml`, `A2.yaml`, `B1.yaml`, `B2.yaml`
-- Real dataset (≥2000 train / ≥200 unique images / ≥50 hand-curated test)
+- Pre-staged HF model snapshots as a separate Kaggle dataset (for `KAGGLE_NO_INTERNET=1`)
 - DPO/PPO preference training (bonus track)
 
 ---
@@ -56,9 +58,9 @@ FoodLensVN/
 │   ├── B1.yaml                 # placeholder
 │   └── B2.yaml                 # placeholder
 ├── data/
-│   ├── annotations/
-│   │   └── train.json          # raw pool (tracked; 22-row stub)
-│   ├── raw/                    # images (gitignored)
+│   ├── foodlensvn/             # Kaggle-fetched (gitignored; via scripts/fetch_dataset.py)
+│   │   ├── annotations/{train,val,test}.json
+│   │   └── images/{raw,squared}/{train,val,test}/*.jpg
 │   ├── processed/              # build_dataset.py outputs (gitignored)
 │   │   ├── annotations/{train,val,test}.json
 │   │   ├── answer_vocab.json
@@ -99,11 +101,11 @@ Each annotation row (in raw input and all processed splits):
 ```json
 {
   "id": "vfvqa-000001",
-  "image": "raw/images/pho_001.jpg",
+  "image": "squared/train/pho_001.jpg",
   "image_id": "pho_001",
   "dish": "pho",
   "question": "Món này có cay không?",
-  "answer": "không",
+  "answer": "không, món này không cay",
   "type": "yes_no",
   "answer_type": "classification",
   "difficulty": "easy",
@@ -112,25 +114,25 @@ Each annotation row (in raw input and all processed splits):
 ```
 
 **Field contract:**
-- `id` — globally unique (`vfvqa-XXXXXX`).
-- `image` — path relative to `data/`.
+- `id` — globally unique (`vfvqa-XXXXXX[-N]`).
+- `image` — `<variant>/<split>/<filename>.jpg` after `build_dataset.py` has prefixed the bare filename. Resolves under `<images-root>` (default `data/foodlensvn/images`).
 - `image_id` — used to enforce no-overlap between train and test (split is performed at this level).
-- `dish` — canonical key from the locked 10-dish set (`pho`, `bun_bo_hue`, `banh_mi`, `com_tam`, `bun_cha`, `goi_cuon`, `cha_gio`, `banh_xeo`, `mi_quang`, `hu_tieu`) defined in [src/utils/dishes.py](src/utils/dishes.py); used to stratify splits and rejected by `build_dataset.py` if non-canonical.
+- `dish` — canonical key from the locked **20-dish set** in [src/utils/dishes.py](src/utils/dishes.py); rejected by `build_dataset.py` if non-canonical.
 - `question` — Vietnamese with diacritics.
-- `answer` — Vietnamese, ≤10 words after `normalize_answer`.
+- `answer` — Vietnamese, ≤10 words after `normalize_answer`. Phase-1 answers are full sentences (≈7–9 words).
 - `type` — one of `yes_no | counting | recognition | attribute | spatial | reasoning`.
-- `answer_type` — auto-derived (see below); `classification` for yes_no/counting/recognition, `generative` for attribute/spatial/reasoning.
-- `difficulty` — auto-derived; `easy` (yes_no, recognition), `medium` (counting, attribute), `hard` (spatial, reasoning).
+- `answer_type` — auto-derived: `yes_no | counting | recognition → classification`; `attribute | spatial | reasoning → generative`.
+- `difficulty` — auto-derived: `yes_no | recognition → easy`; `counting | attribute → medium`; `spatial | reasoning → hard`.
 - `source` — `scrape | dataset | self_shot` for license tracking.
 
 **Validation rules** enforced by `build_dataset.py` (raise on violation; duplicates dropped with warning):
 - `type` must be in the 6-value enum.
+- `dish` must be in the canonical 20-dish set.
 - `answer.split()` must be ≤10 tokens after canonicalization.
-- `type == "counting"` ⇒ `answer.isdigit()` after canonicalization (e.g., `"hai"` → `"2"`, `"2 cái"` → `"2"`).
 - `(image_id, question)` is unique within a split.
-- Train and test image_id sets are disjoint.
+- Train, val, test `image_id` sets are pairwise disjoint.
 
-In non-debug mode the script also asserts ≥200 unique images, ≥2000 train rows, and ≥50 test rows.
+In non-debug mode the script also asserts ≥200 unique images, ≥2000 train rows, and ≥50 test rows. Phase-1 ships 1,196 unique images and 4,460 train rows, so these pass without `--debug`.
 
 ---
 
