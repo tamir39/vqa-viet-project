@@ -1,30 +1,10 @@
-﻿# Global configuration for Vietnamese VQA project
+# Shared defaults for the FoodLensVN pipeline.
+# A1/A2/B1/B2 configs deep-merge on top of this file via scripts/train.py.
+
 project_name: "vqa-viet-project"
+seed: 42
 
-# Hyperparameters
-hyperparameters:
-  batch_size: 16
-  lr: 5.0e-5
-  epochs: 10
-  max_seq_length: 128
-  weight_decay: 0.01
-
-# Model configurations
-# A1/A2: Baseline models
-# B1/B2: Advanced models
-models:
-  A1:
-    encoder_path: "path/to/A1/encoder"
-    decoder_path: "path/to/A1/decoder"
-  A2:
-    encoder_path: "path/to/A2/encoder"
-    fusion_path: "path/to/A2/fusion"
-  B1:
-    model_path: "path/to/B1/model"
-  B2:
-    model_path: "path/to/B2/model"
-
-# Dataset paths
+# Dataset paths.
 # Source data lives on HuggingFace Hub (Tamir39/foodlensvn) and is materialized
 # by `python scripts/fetch_dataset.py` (locally or inside the Kaggle notebook)
 # to data/foodlensvn/ — same flat layout in either environment.
@@ -33,13 +13,59 @@ dataset:
   data_dir: "data/foodlensvn"               # raw root: annotations/ + images/
   output_dir: "data/processed"              # processed splits + answer_vocab
   images_dir: "data/foodlensvn/images"      # used at training time
-  image_variant: "squared"                  # squared|raw — annotation paths are <variant>/<split>/<file>
+  image_variant: "squared"                  # squared|raw
   train_path: "data/processed/annotations/train.json"
   val_path: "data/processed/annotations/val.json"
   test_path: "data/processed/annotations/test.json"
   answer_vocab: "data/processed/answer_vocab.json"
 
-# Logging and Output
+# Data loader.
+loader:
+  batch_size: 32
+  num_workers: 2
+  pin_memory: true
+  max_question_length: 64
+  augment_train: true                       # enables RandAugment + synonym swap
+
+# Model defaults — A1/A2 override `track`, `decoder`, and `decoder_input`.
+model:
+  track: "modular"                          # modular | qwen_zeroshot | qwen_lora
+  decoder_input: "pooled"                   # pooled | seq
+  image_encoder:
+    model_id: "resnet50"
+    pretrained: true
+    freeze: true
+    unfreeze_last_n: 0
+  text_encoder:
+    model_id: "vinai/phobert-base"
+    freeze: true
+    unfreeze_last_n: 0
+  fusion:
+    type: "co_attention"                    # co_attention | elementwise | concat
+    d_fused: 512
+    n_heads: 8
+    dropout: 0.1
+  decoder:
+    type: "lstm"                            # lstm | transformer
+    # LSTM kwargs (used when type=lstm):
+    d_embed: 256
+    d_hidden: 512
+    num_layers: 1
+    dropout: 0.1
+    # Transformer kwargs (used when type=transformer; A2.yaml provides them):
+    # d_model, n_heads, n_layers, dim_feedforward, dropout
+
+# Training.
+training:
+  epochs: 10
+  lr: 5.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.05
+  grad_clip: 1.0
+  amp: true
+  log_every: 50
+
+# Outputs.
 logging:
   log_dir: "reports/logs"
-  checkpoint_dir: "reports/checkpoints"
+  output_dir: "reports"                     # per-config dir is reports/<config_name>/

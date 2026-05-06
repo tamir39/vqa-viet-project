@@ -1,1 +1,22 @@
-﻿# Configuration for A1
+# A1 — modular pipeline with LSTM decoder over the AnswerTokenizer vocab.
+# Deep-merged on top of base_config.yaml by scripts/train.py.
+
+name: "A1"
+
+model:
+  track: "modular"
+  decoder_input: "pooled"                   # LSTM consumes fused_pooled (B, D_fused)
+  fusion:
+    type: "co_attention"
+    d_fused: 512
+    n_heads: 8
+    dropout: 0.1
+  decoder:
+    type: "lstm"
+    d_embed: 256
+    d_hidden: 512
+    num_layers: 1
+    dropout: 0.1
+
+logging:
+  output_dir: "reports/A1"

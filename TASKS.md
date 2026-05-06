@@ -89,9 +89,9 @@
 
 ### 2.6 Configs
 
-- [ ] Fill `configs/base_config.yaml` with shared defaults (seed, batch size, lr, epochs, image size, paths).
-- [ ] Fill `configs/A1.yaml` (modular + LSTM decoder).
-- [ ] Fill `configs/A2.yaml` (modular + Transformer decoder; only diff from A1).
+- [x] Fill `configs/base_config.yaml` with shared defaults (seed, batch size, lr, epochs, image size, paths).
+- [x] Fill `configs/A1.yaml` (modular + LSTM decoder).
+- [x] Fill `configs/A2.yaml` (modular + Transformer decoder; only diff from A1).
 
 ### 2.7 CLI entry-points
 

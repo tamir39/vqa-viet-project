@@ -1,1 +1,24 @@
-﻿# Configuration for A2
+# A2 — modular pipeline with Transformer decoder over fused_seq.
+# Only the decoder block + decoder_input differ from A1.
+# Deep-merged on top of base_config.yaml by scripts/train.py.
+
+name: "A2"
+
+model:
+  track: "modular"
+  decoder_input: "seq"                      # Transformer cross-attends fused_seq (B, M, D)
+  fusion:
+    type: "co_attention"                    # required for fused_seq output
+    d_fused: 512
+    n_heads: 8
+    dropout: 0.1
+  decoder:
+    type: "transformer"
+    d_model: 512                            # may differ from fusion.d_fused (mem_proj adapts)
+    n_heads: 8
+    n_layers: 2
+    dim_feedforward: 2048
+    dropout: 0.1
+
+logging:
+  output_dir: "reports/A2"
