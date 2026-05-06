@@ -68,7 +68,7 @@ FoodLensVN/
 │   │   └── build_dataset.log
 │   └── preference/             # DPO pairs (gitignored except stub)
 ├── notebooks/
-│   └── kaggle_template.ipynb
+│   └── train_foodlensvn.ipynb
 ├── reports/                    # checkpoints / logs / results (planned)
 ├── scripts/
 │   ├── check_env.py
@@ -209,7 +209,7 @@ Outputs (under `<output-dir>`):
 
 ## Kaggle workflow
 
-The `notebooks/kaggle_template.ipynb` notebook handles cloning, dependency install, HF authentication via the `HF_TOKEN` secret, dataset fetch from HF Hub, and the GPU sanity check. Set `KAGGLE_NO_INTERNET=1` to force `local_files_only=True` for HuggingFace *model* loads (PhoBERT / Qwen / xlm-roberta) when those snapshots are pre-staged in a separate Kaggle dataset.
+The `notebooks/train_foodlensvn.ipynb` notebook handles cloning, dependency install, HF authentication via the `HF_TOKEN` secret, dataset fetch from HF Hub, and the GPU sanity check. Set `KAGGLE_NO_INTERNET=1` to force `local_files_only=True` for HuggingFace *model* loads (PhoBERT / Qwen / xlm-roberta) when those snapshots are pre-staged in a separate Kaggle dataset.
 
 Trained checkpoints push back to HF too — e.g. `Tamir39/foodlensvn-A1`, `Tamir39/foodlensvn-A2`, `Tamir39/foodlensvn-B2-lora` — so they survive Kaggle session timeouts and can be loaded straight into the demo.
 

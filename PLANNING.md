@@ -108,7 +108,7 @@ FoodLensVN/
 │   ├── processed/                 # build_dataset.py output (gitignored)
 │   └── preference/                # DPO pairs (gitignored except stub)
 ├── notebooks/
-│   └── kaggle_template.ipynb
+│   └── train_foodlensvn.ipynb
 ├── reports/                       # checkpoints / logs / metrics / errors
 ├── scripts/
 │   ├── check_env.py
@@ -275,7 +275,7 @@ Loading rule: `train.py` and `eval.py` deep-merge `base_config.yaml` ← config-
 
 ## 7. Kaggle workflow
 
-- `notebooks/kaggle_template.ipynb` clones the repo, runs `uv sync`, authenticates with the `HF_TOKEN` Kaggle secret, fetches the dataset from HF Hub (`Tamir39/foodlensvn`), and verifies GPU.
+- `notebooks/train_foodlensvn.ipynb` clones the repo, runs `uv sync`, authenticates with the `HF_TOKEN` Kaggle secret, fetches the dataset from HF Hub (`Tamir39/foodlensvn`), and verifies GPU.
 - Trained checkpoints are pushed back to HF (`Tamir39/foodlensvn-A1`, `…-A2`, `…-B2-lora`) so they survive Kaggle session timeouts.
 - Pre-stage HF *models* (`Qwen/Qwen2-VL-2B-Instruct`, `vinai/phobert-base`, `xlm-roberta-base`) into a Kaggle dataset for `KAGGLE_NO_INTERNET=1` runs.
 - Outputs go to `KAGGLE_WORKING_DIR=/kaggle/working`. Dataset lands at `FOODLENS_DATA_DIR=/kaggle/working/data/foodlensvn`.

@@ -47,9 +47,9 @@
 - [x] Public HuggingFace dataset published: [`Tamir39/foodlensvn`](https://huggingface.co/datasets/Tamir39/foodlensvn) (~34 MB, 2,395 files + dataset card).
 - [x] [scripts/push_dataset.py](scripts/push_dataset.py) — one-shot uploader for `dist/foodlensvn_kaggle/` + `data/HF_README.md`.
 - [x] [scripts/fetch_dataset.py](scripts/fetch_dataset.py) — `huggingface_hub.snapshot_download` to `data/foodlensvn/` (or `$FOODLENS_DATA_DIR`).
-- [x] [notebooks/kaggle_template.ipynb](notebooks/kaggle_template.ipynb) — Kaggle secret `HF_TOKEN` → `huggingface_hub.login` → `fetch_dataset.py` → `build_dataset.py`.
+- [x] [notebooks/train_foodlensvn.ipynb](notebooks/train_foodlensvn.ipynb) — Kaggle secret `HF_TOKEN` → `huggingface_hub.login` → `fetch_dataset.py` → `build_dataset.py`.
 - [ ] Pre-stage HF model snapshots (`vinai/phobert-base`, `Qwen/Qwen2-VL-2B-Instruct`, `xlm-roberta-base`) into a separate Kaggle dataset for `KAGGLE_NO_INTERNET=1` runs.
-- [ ] Smoke-run [notebooks/kaggle_template.ipynb](notebooks/kaggle_template.ipynb) end-to-end on Kaggle GPU.
+- [ ] Smoke-run [notebooks/train_foodlensvn.ipynb](notebooks/train_foodlensvn.ipynb) end-to-end on Kaggle GPU.
 
 ---
 
