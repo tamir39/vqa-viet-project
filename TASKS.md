@@ -21,7 +21,7 @@
 
 ## ✅ Phase 1 — Real dataset (DONE)
 
-> Phase-1 corpus delivered as the public Kaggle dataset **[phvngtngtm/foodlensvn](https://www.kaggle.com/datasets/phvngtngtm/foodlensvn)** — 5,572 (image, question, answer) rows over 20 Vietnamese dishes, sentence-style answers. Generated via the toolchain on the (now-deleted) `origin/data` worktree (Selenium scraper + Gemini 3.1 Flash Lite Q/A generator + image augmenter); reproducible build + upload script preserved at [dist/build_kaggle_dataset.py](dist/build_kaggle_dataset.py).
+> Phase-1 corpus delivered as the public HuggingFace dataset **[Tamir39/foodlensvn](https://huggingface.co/datasets/Tamir39/foodlensvn)** — 5,572 (image, question, answer) rows over 20 Vietnamese dishes, sentence-style answers. Generated via the toolchain on the (now-deleted) `origin/data` worktree (Selenium scraper + Gemini 3.1 Flash Lite Q/A generator + image augmenter); reproducible build script preserved at [dist/build_kaggle_dataset.py](dist/build_kaggle_dataset.py); upload script at [scripts/push_dataset.py](scripts/push_dataset.py). The course brief `DLEndterm.docx` requires HF as the dataset host.
 
 ### 1.1 Image collection
 
@@ -42,12 +42,14 @@
 - [x] `python scripts/build_dataset.py --data-dir data/foodlensvn` runs clean: 0 duplicates dropped, splits image-disjoint, all 20 dishes present, answer vocab size 453.
 - [x] Counting validator relaxed (Phase-1 sentences mix digits with quantifiers); soft-counting accuracy moved to eval-time metrics.
 
-### 1.4 Stage for Kaggle
+### 1.4 Host on HF Hub + Kaggle workflow
 
-- [x] Public Kaggle dataset published: `phvngtngtm/foodlensvn` (28.0 MB, 2,396 files).
-- [x] [scripts/fetch_dataset.py](scripts/fetch_dataset.py) pulls the dataset locally; on Kaggle, attach the dataset and `$KAGGLE_INPUT_DIR=/kaggle/input/foodlensvn` resolves automatically.
+- [x] Public HuggingFace dataset published: [`Tamir39/foodlensvn`](https://huggingface.co/datasets/Tamir39/foodlensvn) (~34 MB, 2,395 files + dataset card).
+- [x] [scripts/push_dataset.py](scripts/push_dataset.py) — one-shot uploader for `dist/foodlensvn_kaggle/` + `data/HF_README.md`.
+- [x] [scripts/fetch_dataset.py](scripts/fetch_dataset.py) — `huggingface_hub.snapshot_download` to `data/foodlensvn/` (or `$FOODLENS_DATA_DIR`).
+- [x] [notebooks/kaggle_template.ipynb](notebooks/kaggle_template.ipynb) — Kaggle secret `HF_TOKEN` → `huggingface_hub.login` → `fetch_dataset.py` → `build_dataset.py`.
 - [ ] Pre-stage HF model snapshots (`vinai/phobert-base`, `Qwen/Qwen2-VL-2B-Instruct`, `xlm-roberta-base`) into a separate Kaggle dataset for `KAGGLE_NO_INTERNET=1` runs.
-- [ ] Smoke-run [notebooks/kaggle_template.ipynb](notebooks/kaggle_template.ipynb) end-to-end on Kaggle: attach dataset → `uv sync` → `check_env.py` → `build_dataset.py`.
+- [ ] Smoke-run [notebooks/kaggle_template.ipynb](notebooks/kaggle_template.ipynb) end-to-end on Kaggle GPU.
 
 ---
 

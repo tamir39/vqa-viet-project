@@ -17,7 +17,7 @@ Evaluation suite: VQA Accuracy (exact + soft), BLEU, ROUGE-L, METEOR, BERTScore 
 
 ## Current status
 
-Phase-1 dataset is shipped on Kaggle (**[phvngtngtm/foodlensvn](https://www.kaggle.com/datasets/phvngtngtm/foodlensvn)**, 5,572 rows, 20 dishes, 28 MB). Foundations + the full modular pipeline (encoders, fusion, decoders, dataset class, model assembly) are implemented. Trainers, evaluation, and the demo app are still pending.
+Phase-1 dataset is shipped on HuggingFace Hub (**[Tamir39/foodlensvn](https://huggingface.co/datasets/Tamir39/foodlensvn)**, 5,572 rows, 20 dishes, ~34 MB). Foundations + the full modular pipeline (encoders, fusion, decoders, dataset class, model assembly) are implemented. Trainers, evaluation, and the demo app are still pending.
 
 ### Implemented
 
@@ -30,7 +30,8 @@ Phase-1 dataset is shipped on Kaggle (**[phvngtngtm/foodlensvn](https://www.kagg
 - **`src/models/decoders/{lstm,transformer}_decoder.py`** — LSTM (A1) and Transformer (A2) decoders over `AnswerTokenizer`.
 - **`src/models/modular_vqa.py`** — end-to-end module wiring encoders → fusion → decoder.
 - **`scripts/build_dataset.py`** — validates raw annotations, enriches with `answer_type` / `difficulty`, deduplicates, prefixes image paths to `<variant>/<split>/<file>`. Reads pre-split inputs from `<data-dir>/annotations/{train,val,test}.json`.
-- **`scripts/fetch_dataset.py`** — pulls the Kaggle dataset to `data/foodlensvn/` for local dev.
+- **`scripts/fetch_dataset.py`** — pulls the HF dataset to `data/foodlensvn/` for local dev.
+- **`scripts/push_dataset.py`** — uploads the staging dir to `Tamir39/foodlensvn` on HF Hub.
 - **`src/models/multimodal/qwen_vl.py`** — Qwen2-VL-2B-Instruct loader (4-bit NF4), strict Vietnamese prompt, output cleaner.
 - **`scripts/check_env.py`** — GPU + library + config sanity check.
 
@@ -41,7 +42,7 @@ Phase-1 dataset is shipped on Kaggle (**[phvngtngtm/foodlensvn](https://www.kagg
 - `scripts/train.py`, `scripts/eval.py`, `scripts/infer.py`
 - `app/demo.py` — Gradio interactive UI
 - Filled `configs/A1.yaml`, `A2.yaml`, `B1.yaml`, `B2.yaml`
-- Pre-staged HF model snapshots as a separate Kaggle dataset (for `KAGGLE_NO_INTERNET=1`)
+- Pre-staged HF model snapshots into a Kaggle dataset for offline (`KAGGLE_NO_INTERNET=1`) runs
 - DPO/PPO preference training (bonus track)
 
 ---
@@ -58,7 +59,7 @@ FoodLensVN/
 │   ├── B1.yaml                 # placeholder
 │   └── B2.yaml                 # placeholder
 ├── data/
-│   ├── foodlensvn/             # Kaggle-fetched (gitignored; via scripts/fetch_dataset.py)
+│   ├── foodlensvn/             # HF-fetched (gitignored; via scripts/fetch_dataset.py)
 │   │   ├── annotations/{train,val,test}.json
 │   │   └── images/{raw,squared}/{train,val,test}/*.jpg
 │   ├── processed/              # build_dataset.py outputs (gitignored)
@@ -177,10 +178,10 @@ python scripts/check_env.py
 
 ## Data pipeline
 
-The Phase-1 corpus is hosted on Kaggle as **[phvngtngtm/foodlensvn](https://www.kaggle.com/datasets/phvngtngtm/foodlensvn)** — 5,572 annotation rows over 20 dishes, with `raw/` and `squared/` image variants. It is **not** committed to git.
+The Phase-1 corpus is hosted on HuggingFace Hub as **[Tamir39/foodlensvn](https://huggingface.co/datasets/Tamir39/foodlensvn)** — 5,572 annotation rows over 20 dishes, with `raw/` and `squared/` image variants. It is **not** committed to git.
 
 ```bash
-# 1. Fetch dataset locally (one-time; needs ~/.kaggle/kaggle.json)
+# 1. Fetch dataset locally (one-time; `hf auth login` recommended for rate-limit headroom)
 python scripts/fetch_dataset.py                          # -> data/foodlensvn/
 
 # 2. Build processed splits + answer vocab
@@ -190,10 +191,10 @@ python scripts/build_dataset.py --data-dir data/foodlensvn
 python scripts/build_dataset.py --data-dir data/foodlensvn --debug
 ```
 
-On Kaggle notebooks, attach the dataset and skip step 1 — `KAGGLE_INPUT_DIR=/kaggle/input/foodlensvn` resolves automatically.
+On Kaggle, the notebook authenticates with the `HF_TOKEN` secret and calls `fetch_dataset.py` directly — no Kaggle dataset attachment needed.
 
 CLI flags for `build_dataset.py`:
-- `--data-dir` — raw root (default: `$KAGGLE_INPUT_DIR` or `data`)
+- `--data-dir` — raw root (default: `$FOODLENS_DATA_DIR` or `$KAGGLE_INPUT_DIR` or `data`)
 - `--output-dir` — processed root (default: `$KAGGLE_WORKING_DIR` or `data/processed`)
 - `--image-variant` — `squared` (default) or `raw`; sets the prefix in row `"image"` paths
 - `--debug` — caps splits and skips corpus-size asserts
@@ -208,10 +209,12 @@ Outputs (under `<output-dir>`):
 
 ## Kaggle workflow
 
-The `notebooks/kaggle_template.ipynb` notebook handles cloning, dependency install, and GPU sanity check. Set `KAGGLE_NO_INTERNET=1` to force `local_files_only=True` for HuggingFace loads when running on a no-internet Kaggle accelerator.
+The `notebooks/kaggle_template.ipynb` notebook handles cloning, dependency install, HF authentication via the `HF_TOKEN` secret, dataset fetch from HF Hub, and the GPU sanity check. Set `KAGGLE_NO_INTERNET=1` to force `local_files_only=True` for HuggingFace *model* loads (PhoBERT / Qwen / xlm-roberta) when those snapshots are pre-staged in a separate Kaggle dataset.
 
-Default paths used by `build_dataset.py` and (later) trainers when env vars are set:
-- `KAGGLE_INPUT_DIR=/kaggle/input/foodlensvn`
+Trained checkpoints push back to HF too — e.g. `Tamir39/foodlensvn-A1`, `Tamir39/foodlensvn-A2`, `Tamir39/foodlensvn-B2-lora` — so they survive Kaggle session timeouts and can be loaded straight into the demo.
+
+Default paths used inside the notebook:
+- `FOODLENS_DATA_DIR=/kaggle/working/data/foodlensvn`
 - `KAGGLE_WORKING_DIR=/kaggle/working`
 
 All scripts use relative + configurable paths — no hardcoded absolutes.

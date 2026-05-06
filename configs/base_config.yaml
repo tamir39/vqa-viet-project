@@ -25,9 +25,9 @@ models:
     model_path: "path/to/B2/model"
 
 # Dataset paths
-# Source data lives on Kaggle (phvngtngtm/foodlensvn) and is either:
-#   - mounted at /kaggle/input/foodlensvn (Kaggle notebooks), or
-#   - downloaded locally via `python scripts/fetch_dataset.py` to data/foodlensvn/
+# Source data lives on HuggingFace Hub (Tamir39/foodlensvn) and is materialized
+# by `python scripts/fetch_dataset.py` (locally or inside the Kaggle notebook)
+# to data/foodlensvn/ — same flat layout in either environment.
 # build_dataset.py reads from <data_dir>, writes processed splits to <output_dir>.
 dataset:
   data_dir: "data/foodlensvn"               # raw root: annotations/ + images/

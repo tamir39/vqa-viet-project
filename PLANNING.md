@@ -104,7 +104,7 @@ FoodLensVN/
 │   └── B2.yaml                    # Qwen2-VL LoRA SFT
 ├── data/
 │   ├── annotations/               # split-baked Q/A files: {train,val,test}_with_questions[_augmented].json (tracked)
-│   ├── images/                    # squared/raw + per-split + per-split-augmented (gitignored; download from Kaggle)
+│   ├── images/                    # squared/raw + per-split + per-split-augmented (gitignored; download from HF Hub)
 │   ├── processed/                 # build_dataset.py output (gitignored)
 │   └── preference/                # DPO pairs (gitignored except stub)
 ├── notebooks/
@@ -275,9 +275,10 @@ Loading rule: `train.py` and `eval.py` deep-merge `base_config.yaml` ← config-
 
 ## 7. Kaggle workflow
 
-- `notebooks/kaggle_template.ipynb` clones the repo, runs `uv sync`, sets `KAGGLE_NO_INTERNET=1` if applicable, and verifies GPU.
-- Pre-stage HF models (`Qwen/Qwen2-VL-2B-Instruct`, `vinai/phobert-base`, `xlm-roberta-base`) into a Kaggle dataset for offline mode.
-- Outputs go to `KAGGLE_WORKING_DIR=/kaggle/working`. Inputs come from `KAGGLE_INPUT_DIR=/kaggle/input/foodlensvn`.
+- `notebooks/kaggle_template.ipynb` clones the repo, runs `uv sync`, authenticates with the `HF_TOKEN` Kaggle secret, fetches the dataset from HF Hub (`Tamir39/foodlensvn`), and verifies GPU.
+- Trained checkpoints are pushed back to HF (`Tamir39/foodlensvn-A1`, `…-A2`, `…-B2-lora`) so they survive Kaggle session timeouts.
+- Pre-stage HF *models* (`Qwen/Qwen2-VL-2B-Instruct`, `vinai/phobert-base`, `xlm-roberta-base`) into a Kaggle dataset for `KAGGLE_NO_INTERNET=1` runs.
+- Outputs go to `KAGGLE_WORKING_DIR=/kaggle/working`. Dataset lands at `FOODLENS_DATA_DIR=/kaggle/working/data/foodlensvn`.
 
 ---
 

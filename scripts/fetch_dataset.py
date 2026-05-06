@@ -1,7 +1,6 @@
-"""Fetch the FoodLensVN Phase-1 dataset from Kaggle.
+"""Fetch the FoodLensVN Phase-1 dataset from HuggingFace Hub.
 
-Pulls ``phvngtngtm/foodlensvn`` and unzips into ``<dest>``, which then mirrors
-the same layout Kaggle mounts at ``/kaggle/input/foodlensvn``:
+Pulls ``Tamir39/foodlensvn`` and materializes it under ``<dest>``:
 
   <dest>/
     annotations/{train,val,test}.json
@@ -9,8 +8,8 @@ the same layout Kaggle mounts at ``/kaggle/input/foodlensvn``:
 
 After this, ``scripts/build_dataset.py --data-dir <dest>`` works locally.
 
-Auth: requires ``~/.kaggle/kaggle.json`` (download from
-https://www.kaggle.com/settings -> "Create New Token").
+Auth: a public dataset doesn't strictly require a token, but ``hf auth login``
+(or ``HF_TOKEN`` env var) avoids rate limits.
 """
 
 from __future__ import annotations
@@ -20,34 +19,26 @@ import os
 import sys
 from pathlib import Path
 
-DATASET = "phvngtngtm/foodlensvn"
+REPO_ID = "Tamir39/foodlensvn"
+REPO_TYPE = "dataset"
 DEFAULT_DEST = Path("data/foodlensvn")
-
-
-def _ensure_kaggle_creds() -> None:
-    candidates = [
-        Path.home() / ".kaggle" / "kaggle.json",
-        Path.home() / ".config" / "kaggle" / "kaggle.json",
-    ]
-    if not any(p.exists() for p in candidates):
-        sys.exit(
-            "missing Kaggle credentials. Create a token at "
-            "https://www.kaggle.com/settings and save it as "
-            "~/.kaggle/kaggle.json"
-        )
 
 
 def _download(dest: Path, force: bool) -> None:
     try:
-        from kaggle.api.kaggle_api_extended import KaggleApi
+        from huggingface_hub import snapshot_download
     except ImportError:
-        sys.exit("kaggle package not installed. Run: uv add kaggle  (or pip install kaggle)")
+        sys.exit("huggingface_hub not installed. Run: uv sync")
 
-    api = KaggleApi()
-    api.authenticate()
     dest.mkdir(parents=True, exist_ok=True)
-    print(f"downloading {DATASET} -> {dest}")
-    api.dataset_download_files(DATASET, path=str(dest), unzip=True, force=force, quiet=False)
+    print(f"downloading {REPO_ID} -> {dest}")
+    snapshot_download(
+        repo_id=REPO_ID,
+        repo_type=REPO_TYPE,
+        local_dir=str(dest),
+        force_download=force,
+        token=os.environ.get("HF_TOKEN"),
+    )
 
 
 def _summarize(dest: Path) -> None:
@@ -71,11 +62,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument(
         "--dest",
-        default=os.environ.get("KAGGLE_INPUT_DIR") or str(DEFAULT_DEST),
+        default=os.environ.get("FOODLENS_DATA_DIR") or str(DEFAULT_DEST),
         help=(
-            "destination directory (default: $KAGGLE_INPUT_DIR or "
-            f"'{DEFAULT_DEST}'). On Kaggle the dataset is already mounted; "
-            "this script is a no-op there."
+            "destination directory (default: $FOODLENS_DATA_DIR or "
+            f"'{DEFAULT_DEST}')."
         ),
     )
     parser.add_argument("--force", action="store_true", help="re-download even if files exist")
@@ -87,7 +77,6 @@ def main() -> None:
         _summarize(dest)
         return
 
-    _ensure_kaggle_creds()
     _download(dest, force=args.force)
     _summarize(dest)
 

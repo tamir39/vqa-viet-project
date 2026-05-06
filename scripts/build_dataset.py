@@ -101,7 +101,12 @@ MIN_TEST_ROWS: int = 50
 
 
 def _resolve_dirs(args: argparse.Namespace) -> tuple[Path, Path]:
-    data_dir = args.data_dir or os.environ.get("KAGGLE_INPUT_DIR") or "data"
+    data_dir = (
+        args.data_dir
+        or os.environ.get("FOODLENS_DATA_DIR")
+        or os.environ.get("KAGGLE_INPUT_DIR")
+        or "data"
+    )
     output_dir = args.output_dir or os.environ.get("KAGGLE_WORKING_DIR") or "data/processed"
     return Path(data_dir), Path(output_dir)
 
@@ -278,7 +283,7 @@ def _emit_preference_stub(data_dir: Path, logger: logging.Logger) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build VQA dataset splits with validation.")
-    parser.add_argument("--data-dir", default=None, help="raw annotations root (default: $KAGGLE_INPUT_DIR or 'data')")
+    parser.add_argument("--data-dir", default=None, help="raw annotations root (default: $FOODLENS_DATA_DIR or $KAGGLE_INPUT_DIR or 'data')")
     parser.add_argument("--output-dir", default=None, help="processed output root (default: $KAGGLE_WORKING_DIR or 'data/processed')")
     parser.add_argument("--image-variant", choices=("squared", "raw"), default="squared", help="image folder variant to reference (default: squared)")
     parser.add_argument("--debug", action="store_true", help="cap split sizes and skip corpus-size asserts")
