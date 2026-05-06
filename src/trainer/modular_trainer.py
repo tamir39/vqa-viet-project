@@ -10,6 +10,10 @@ processed splits with:
   (decoder input: ``target_ids[:, :-1]``, labels: ``target_ids[:, 1:]``).
 * Best-by-val-loss checkpoint saved to
   ``<output_dir>/checkpoints/best.pt`` plus ``last.pt`` every epoch.
+* End-of-run report under ``<output_dir>/``:
+  ``history.json`` (per-epoch losses), ``loss_curves.png`` (train/val curves),
+  and ``training_summary.md`` (best epoch, final loss, total time, model
+  size) — ready to drop into the final report.
 
 The trainer is decoder-agnostic — A1 (LSTM, ``decoder_input='pooled'``) and A2
 (Transformer, ``decoder_input='seq'``) share this loop unchanged.
@@ -243,4 +247,62 @@ class ModularTrainer:
         with (self.output_dir / "history.json").open("w", encoding="utf-8") as f:
             json.dump(self.history, f, indent=2)
 
+        self._write_report()
         return {"best_val_loss": self.best_val_loss, "history": self.history}
+
+    def _write_report(self) -> None:
+        """Render loss curves PNG and a short training_summary.md."""
+        if not self.history:
+            return
+        try:
+            import matplotlib
+
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+
+            epochs = [h["epoch"] for h in self.history]
+            train = [h["train_loss"] for h in self.history]
+            val = [h["val_loss"] for h in self.history]
+            fig, ax = plt.subplots(figsize=(7, 4))
+            ax.plot(epochs, train, marker="o", label="train")
+            ax.plot(epochs, val, marker="o", label="val")
+            ax.set_xlabel("epoch")
+            ax.set_ylabel("cross-entropy loss")
+            ax.set_title(f"Training curves — {self.output_dir.name}")
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            fig.tight_layout()
+            fig.savefig(self.output_dir / "loss_curves.png", dpi=120)
+            plt.close(fig)
+        except Exception as e:  # noqa: BLE001
+            print(f"  (loss_curves.png skipped: {e})")
+
+        best = min(self.history, key=lambda h: h["val_loss"])
+        last = self.history[-1]
+        total_s = sum(h["time_s"] for h in self.history)
+        n_train = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        n_total = sum(p.numel() for p in self.model.parameters())
+
+        lines = [
+            f"# Training summary — {self.output_dir.name}",
+            "",
+            f"- epochs run: **{len(self.history)}** (planned: {self.cfg.epochs})",
+            f"- best epoch: **{best['epoch']}** — val_loss=**{best['val_loss']:.4f}**, train_loss={best['train_loss']:.4f}",
+            f"- final epoch: {last['epoch']} — val_loss={last['val_loss']:.4f}, train_loss={last['train_loss']:.4f}",
+            f"- total wall time: {total_s / 60:.1f} min",
+            f"- trainable params: {n_train / 1e6:.2f}M  /  total: {n_total / 1e6:.2f}M",
+            f"- device: `{self.device}`  amp_dtype: `{self.amp_dtype}`",
+            f"- optimizer: AdamW(lr={self.cfg.lr}, wd={self.cfg.weight_decay})  schedule: warmup→cosine (warmup_ratio={self.cfg.warmup_ratio})",
+            "",
+            "## per-epoch loss",
+            "",
+            "| epoch | train_loss | val_loss | time_s |",
+            "|------:|-----------:|---------:|-------:|",
+        ]
+        for h in self.history:
+            lines.append(
+                f"| {h['epoch']} | {h['train_loss']:.4f} | {h['val_loss']:.4f} | {h['time_s']:.1f} |"
+            )
+        (self.output_dir / "training_summary.md").write_text(
+            "\n".join(lines) + "\n", encoding="utf-8"
+        )
