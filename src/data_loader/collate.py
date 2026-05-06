@@ -1,8 +1,8 @@
 """Collate function for the modular VQA DataLoader.
 
 The dataset returns one dict per row with raw question strings (so PhoBERT
-batched padding can handle them efficiently). :func:`make_collate_fn` returns
-a closure that bundles a batch into:
+batched padding can handle them efficiently). :class:`VQACollate` bundles a
+batch into:
 
     {
         "pixel_values":          (B, C, H, W) float,
@@ -15,22 +15,21 @@ a closure that bundles a batch into:
         ],
     }
 
-The PhoBERT tokenizer is captured by the closure so the collate fn stays
-``DataLoader``-pickle-friendly under ``num_workers > 0``.
+The collate is a class (not a closure) so it survives ``forkserver`` /
+``spawn`` pickling — required under Python 3.14 where DataLoader workers
+default to ``forkserver`` on Linux. :func:`make_collate_fn` is kept as a thin
+factory for backwards compatibility with existing callers.
 """
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 
 import torch
 
 
-def make_collate_fn(
-    phobert_tokenizer: Any,
-    max_question_length: int = 64,
-) -> Callable[[list[dict[str, Any]]], dict[str, Any]]:
-    """Build a collate fn that batch-tokenizes questions with PhoBERT.
+class VQACollate:
+    """Picklable collate callable for the modular VQA DataLoader.
 
     Args:
         phobert_tokenizer: HuggingFace tokenizer for PhoBERT
@@ -38,16 +37,20 @@ def make_collate_fn(
         max_question_length: Truncation/padding length for tokenized questions.
     """
 
-    def collate(batch: list[dict[str, Any]]) -> dict[str, Any]:
+    def __init__(self, phobert_tokenizer: Any, max_question_length: int = 64) -> None:
+        self.phobert_tokenizer = phobert_tokenizer
+        self.max_question_length = max_question_length
+
+    def __call__(self, batch: list[dict[str, Any]]) -> dict[str, Any]:
         pixel_values = torch.stack([b["pixel_values"] for b in batch], dim=0)
         answer_ids = torch.stack([b["answer_ids"] for b in batch], dim=0)
 
         questions = [b["question"] for b in batch]
-        tok = phobert_tokenizer(
+        tok = self.phobert_tokenizer(
             questions,
             padding="max_length",
             truncation=True,
-            max_length=max_question_length,
+            max_length=self.max_question_length,
             return_tensors="pt",
         )
 
@@ -69,4 +72,9 @@ def make_collate_fn(
             "meta": meta,
         }
 
-    return collate
+
+def make_collate_fn(
+    phobert_tokenizer: Any, max_question_length: int = 64
+) -> VQACollate:
+    """Construct a :class:`VQACollate` (kept for API stability)."""
+    return VQACollate(phobert_tokenizer, max_question_length)
