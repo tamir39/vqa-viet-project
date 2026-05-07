@@ -54,8 +54,16 @@ def _clean_output(text: str) -> str:
 def load_qwen_vl(
     model_id: str = DEFAULT_MODEL_ID,
     quantize_4bit: bool = True,
+    max_pixels: int | None = 256 * 28 * 28,
 ) -> tuple[Any, Any]:
-    """Load Qwen2-VL model + processor. NF4 4-bit by default; bf16 otherwise."""
+    """Load Qwen2-VL model + processor. NF4 4-bit by default; bf16 otherwise.
+
+    ``max_pixels`` caps the visual-token count: Qwen2-VL's processor turns
+    every 28x28 patch into one token, so 256 * 28 * 28 ≈ 200K pixels →
+    ~256 visual tokens, which keeps inference activations comfortably under
+    the T4's 15 GB. Default upstream is ~1280 * 28 * 28 (≈1600 tokens) and
+    blows VRAM when other models share the GPU. Set to None to disable.
+    """
     import torch
     from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
@@ -81,7 +89,10 @@ def load_qwen_vl(
         )
 
     model = Qwen2VLForConditionalGeneration.from_pretrained(model_id, **model_kwargs)
-    processor = AutoProcessor.from_pretrained(model_id, local_files_only=local_files_only)
+    proc_kwargs: dict[str, Any] = {"local_files_only": local_files_only}
+    if max_pixels is not None:
+        proc_kwargs["max_pixels"] = int(max_pixels)
+    processor = AutoProcessor.from_pretrained(model_id, **proc_kwargs)
     return model, processor
 
 

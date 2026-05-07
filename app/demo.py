@@ -33,6 +33,10 @@ from typing import Any, Callable
 os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 os.environ.setdefault("MPLBACKEND", "Agg")
+# LawMate idiom: let CUDA allocate in non-contiguous chunks. With four models
+# in VRAM, large activation tensors fragment the allocator and cause OOM even
+# when total free VRAM looks adequate.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -341,6 +345,10 @@ def main() -> None:
             except Exception as e:  # noqa: BLE001 — show the error in the UI rather than crashing
                 outputs.append(f"[error] {type(e).__name__}: {e}")
                 outputs.append("")
+            # Free activation tensors between tracks so the next model's
+            # forward pass doesn't trip over fragmented memory.
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         return outputs
 
     css = """
