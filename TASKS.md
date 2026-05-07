@@ -136,14 +136,15 @@
 
 - [x] Loads config + checkpoint/adapter, runs inference on test split, applies `normalize_answer`, calls `aggregate`, writes `reports/<config>_metrics.json`.
 - [x] Writes `reports/<config>_errors.json` with the rows where prediction ≠ gold (cap to N=200 for size).
-- [ ] Verify: all four configs produce both files cleanly.
+- [x] Verify: all four configs produce both files cleanly.
 
 ---
 
 ## 🎨 Phase 5 — Demo + report
 
-- [ ] `app/demo.py` — Gradio app with image upload + question textbox; runs A1, A2, B1, B2 in parallel and shows answers + latency.
-- [ ] Verify: launch locally, drop a sample image, all four configs respond.
+- [x] `app/demo.py` — Gradio app with image upload + question textbox; runs A1, A2, B1, B2 and shows answers + latency. B1/B2 share one Qwen base via `disable_adapter()` to fit T4 VRAM.
+- [x] `notebooks/demo.ipynb` — Kaggle wrapper: clone → uv sync → HF login → fetch dataset → pull A1/A2/B2 from HF → launch `app/demo.py --share`.
+- [ ] Verify: launch on Kaggle, drop a sample image, all four configs respond.
 - [ ] Written report (separate doc) — A1↔A2 ablation, B1↔B2 lift, dataset construction, error analysis, limitations.
 
 ---
