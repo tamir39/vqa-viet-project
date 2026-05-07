@@ -26,12 +26,14 @@ def compute_bertscore(
     if not preds:
         return 0.0
 
-    # bert_score's sent_encode hits a removed tokenizer API on empty strings
-    # (XLMRobertaTokenizer.build_inputs_with_special_tokens). Substitute a
-    # single space — scoring an empty prediction against a non-empty gold
-    # already yields ~0 similarity, so the metric stays meaningful.
-    preds = [p if p.strip() else " " for p in preds]
-    golds = [g if g.strip() else " " for g in golds]
+    # bert_score's sent_encode strips whitespace and then calls
+    # tokenizer.build_inputs_with_special_tokens on empty strings, which
+    # XLMRobertaTokenizer (slow) no longer exposes on newer transformers.
+    # Substitute a non-whitespace placeholder so the empty branch is skipped;
+    # an empty prediction vs. non-empty gold still scores near zero.
+    _EMPTY = "[empty]"
+    preds = [p if p.strip() else _EMPTY for p in preds]
+    golds = [g if g.strip() else _EMPTY for g in golds]
 
     _, _, f1 = bert_score_score(
         cands=preds,
