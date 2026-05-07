@@ -191,18 +191,35 @@ def main() -> None:
     parser.add_argument("--device", default=None)
     parser.add_argument("--share", action="store_true", help="enable gradio share link (Kaggle)")
     parser.add_argument("--server-port", type=int, default=7860)
+    parser.add_argument(
+        "--eager",
+        action="store_true",
+        help="warm-load every track before launching gradio so first-request latency is gone",
+    )
     args = parser.parse_args()
 
     import torch
     device_str = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"demo: device={device_str}")
+    print(f"demo: device={device_str}", flush=True)
 
     tracks = _build_tracks(args, device_str)
     available = [t.name for t in tracks if t.available]
     skipped = [t.name for t in tracks if not t.available]
-    print(f"available tracks: {available}")
+    print(f"available tracks: {available}", flush=True)
     if skipped:
-        print(f"skipped (missing artifacts): {skipped}")
+        print(f"skipped (missing artifacts): {skipped}", flush=True)
+
+    if args.eager:
+        # Trigger lazy load of every available track. We have to call the
+        # underlying builder rather than predict() because predict() needs an
+        # image; building the predictor is what loads the weights. After this
+        # loop, the first browser request hits cached models.
+        for t in tracks:
+            if not t.available:
+                continue
+            print(f"[eager] loading {t.name} ...", flush=True)
+            t._predictor = t._builder()  # type: ignore[misc]
+        print("[eager] all tracks warm; gradio is about to launch.", flush=True)
 
     import gradio as gr
     import pandas as pd
