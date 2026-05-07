@@ -364,11 +364,11 @@ def main() -> None:
                     else ""
                 )
             )
-            answer = gr.Textbox(label="Answer", lines=2, interactive=False, show_copy_button=True)
+            answer = gr.Textbox(label="Answer", lines=2, interactive=False)
             latency = gr.Markdown("")
         return answer, latency
 
-    with gr.Blocks(title="FoodLensVN — VQA Demo", css=css) as demo:
+    with gr.Blocks(title="FoodLensVN — VQA Demo") as demo:
         gr.Markdown(
             "# FoodLensVN — Visual Question Answering on Vietnamese dishes\n"
             "Four configs run on the same input. **A1 / A2** are from-scratch modular models; "
@@ -408,6 +408,7 @@ def main() -> None:
         share=args.share,
         server_name="0.0.0.0",
         server_port=args.server_port,
+        css=css,
     )
 
 
